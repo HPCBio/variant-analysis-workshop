@@ -6,19 +6,23 @@ permalink: index.html  # Is the only page that doesn't follow the pattern /:path
 
 {% include gh_variables.html %}
 
-For guidelines on how to develop curriculum content, please visit [The Carpentries Curriculum Development Handbook](https://carpentries.github.io/curriculum-development/).
+Attendees will learn how to read, filter, and interrogate variant calls that are in VCF (Variant Call Format) format with Bioconductor packages in R. Analyses may include some or all of the following topics: assessing minor allele frequency, missing data rate, heterozygosity, and/or linkage disequilibrium; working with genome annotations as TxDb objects; discovering what genes are near SNPs of interest; identifying functional consequences of variants.
 
-This lesson shows how to use [The Carpentries]({{ site.carpentries_site}})
-lesson template. The materials below assume familiarity with tools such as GitHub, Markdown, and Jekyll. For more guidance, please visit the [Technological introductions](https://carpentries.github.io/curriculum-development/technological-introductions.html) section of The Carpentries Curriculum Development Handbook.
-
-For guidelines on how to help improve our lessons and this template,
-please see [the contribution guidelines][contributing];
-for guidelines on how to set up your machine to preview changes locally,
-please see [the setup instructions]({{ page.root }}{% link setup.md %}).
+For guidelines on how to help improve this lesson,
+please see [the contribution guidelines][contributing].
 
 > ## Prerequisites
 >
-> Use the `.prereq` style to specify prerequisites.
+> * **Beginner knowledge of bioinformatics concepts**
+>   - Single nucleotide polymorphisms (SNPs)
+>   - Genome annotations
+>   - Variant and genotype calling
+> * **Beginner knowledge of R and Bioconductor**
+>   - Installing packages from Bioconductor
+>   - Finding help pages
+>   - Importing data
+>   - Using functions
+>   - Indexing and subsetting data
 {: .prereq}
 
 > ## Ten Things You Need To Know
