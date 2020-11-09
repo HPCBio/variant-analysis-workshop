@@ -91,4 +91,161 @@ There are chromosomes, and some smaller contigs.
 > {: .solution}
 {: .challenge}
 
+## Coordinates within a genome
+
+Any time we want to specify coordinates within a genome, we use a `GRanges`
+object.  This could indicate the locations of anything including SNPs, exons,
+QTL regions, or entire chromosomes.  Somewhat confusingly, every `GRanges`
+object contains an `IRanges` object containing the positions, and then the
+`GRanges` object tags on the chromosome name.  Let's build one from scratch.
+
+```{r}
+myqtl <- GRanges(c("Chr2", "Chr2", "Chr8"),
+                 IRanges(start = c(134620000, 48023000, 150341000),
+                         end   = c(134752000, 48046000, 150372000)))
+myqtl
+```
+
+We can add some extra info, like row names and metadata columns.
+
+```{r}
+names(myqtl) <- c("Yld1", "LA1", "LA2")
+myqtl$Trait <- c("Yield", "Leaf angle", "Leaf angle")
+myqtl
+```
+
+Although this appears two-dimensional like a data frame, if we only want
+certain rows, we index it in a one-dimensional way like a vector.
+
+```{r}
+myqtl[1]
+myqtl["LA2"]
+myqtl[myqtl$Trait == "Leaf angle"]
+```
+
+> ## Handy utility functions
+>
+> See `?IRanges::shift` for some useful functions for manipulating `GRanges`
+> objects.  The `width` function is also helpful if you want to know the size
+> of each range.  The `mcols` function retrieves all metadata columns, like our
+> "Trait" column. Check out `browseVignettes("GenomicRanges")` to learn even more.
+{: .callout}
+
+We can also import our gene annotations in to a `GRanges` object.  This should
+be familiar if you took the HPCBio introductory Bioconductor workshop this
+semester.
+
+```{r readgff}
+gtf0 <- rtracklayer::import("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3")
+gtf0
+```
+
+Unfortunately, the chromosome names have been shortened and don't match the
+reference genome.  We'll find this problem with VCFs as well.  Here is how
+to fix it.
+
+```{r}
+newnames <- as.character(seqnames(gtf0))
+tofix <- which(!newnames %in% seqnames(seqinfo(mygenome)))
+unique(newnames[tofix])
+newnames[newnames %in% as.character(1:10)] <- paste0("Chr", newnames[newnames %in% as.character(1:10)])
+tofix <- which(!newnames %in% seqnames(seqinfo(mygenome)))
+unique(newnames[tofix])
+```
+
+The mitochondrial genome is in the GFF but not the FASTA, but we will ignore that
+for now.  Continuing on with the fix:
+
+```{r}
+gtf0a <- GRanges(newnames, ranges(gtf0))
+mcols(gtf0a) <- mcols(gtf0)
+gtf0a
+```
+
+We can free up memory by removing `gtf0` now that we don't need it.
+
+```{r}
+rm(gtf0)
+```
+
+> ## Challenge: Subset GFF
+> 
+> Make a `GRanges` object called `gtf1` that only contains gene locations, _i.e._
+> it only contains rows where the "type" is "gene".  Be sure to start with our
+> `gtf0a` object.
+>
+> > ## Solution
+> >
+> > ```{r}
+> > gtf1 <- gtf0a[gtf0a$type == "gene"]
+> > gtf1
+> > ```
+> {: .solution}
+{: .challenge}
+
+Here's where things start to get really helpful.  What genes are within our QTL
+ranges?
+
+```{r}
+qtl_genes <- subsetByOverlaps(gtf1, myqtl)
+qtl_genes
+```
+
+## DNA sequences
+
+Now let's get the sequences for those genes.  You could do this using any
+`GRanges` object.
+
+```{r}
+qtl_genes_seq <- scanFa(mygenome, qtl_genes)
+qtl_genes_seq
+```
+
+This is a `DNAStringSet`, which is how you'll typically find DNA sequences
+represented.  You can do handy things like take the reverse complement, or
+translate to amino acids:
+
+```{r, warning = FALSE}
+reverseComplement(qtl_genes_seq)
+translate(qtl_genes_seq)
+```
+
+Of course, this is the full gene sequence containing exons and introns, so
+we don't get the correct amino acid sequence like we would if we were using
+the CDS.
+
+> ## Extracting transcript sequences
+>
+> If you do want to get the sequences of transcripts or CDS from a genome,
+> see `?GenomicFeatures::extractTranscriptSeqs`.  You would need to import
+> the GFF with `makeTxDbFromGFF` rather than `rtracklayer::import`.
+{: .callout}
+
+If you need to create a `DNAStringSet` from scratch, you can do it directly from
+a character vector.
+
+```{r}
+test_dna <- DNAStringSet(c("AGGG", "TCAGATTTAAC", "TC"))
+test_dna
+```
+
+> ## Bonus Challenge: The whole thing
+>
+> How would you import the full sequence for chromosome 3?
+>
+> > ## Solution
+> >
+> > ```{r}
+> > chr3length <- seqlengths(seqinfo(mygenome))["Chr3"]
+> > chr3range <- GRanges("Chr3", IRanges(start = 1, end = chr3length))
+> > chr3seq <- scanFa(mygenome, chr3range)
+> > ```
+> {: .solution}
+{: .challenge}
+
+```{r, echo = FALSE}
+rm(chr3seq)
+```
+
+
 {% include links.md %}

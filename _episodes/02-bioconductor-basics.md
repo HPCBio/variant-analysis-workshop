@@ -3,8 +3,8 @@
 # Instead, please edit 02-bioconductor-basics.md in _episodes_rmd/
 source: Rmd
 title: "Bioconductor basics"
-teaching: 10
-exercises: 2
+teaching: 60
+exercises: 15
 questions:
 - "What are the Bioconductor classes for the types of data we would find in a VCF?"
 objectives:
@@ -13,9 +13,10 @@ objectives:
 - "Extract assay metadata from the results of an experiment."
 - "Find help pages to learn more about what you can do with this data."
 keypoints:
+- "FaFile creates a pointer to a reference genome file on your computer."
+- "An index file allows quick access to specific information from large files."
 - "GRanges stores positions within a genome for any type of feature (SNP, exon, etc.)"
 - "DNAStringSet stores DNA sequences."
-- "FaFile creates a pointer to a reference genome file on your computer."
 - "SummarizedExperiment stores the results of a set of assays across a set of samples."
 ---
 
@@ -206,5 +207,631 @@ There are chromosomes, and some smaller contigs.
 > > {: .output}
 > {: .solution}
 {: .challenge}
+
+## Coordinates within a genome
+
+Any time we want to specify coordinates within a genome, we use a `GRanges`
+object.  This could indicate the locations of anything including SNPs, exons,
+QTL regions, or entire chromosomes.  Somewhat confusingly, every `GRanges`
+object contains an `IRanges` object containing the positions, and then the
+`GRanges` object tags on the chromosome name.  Let's build one from scratch.
+
+
+~~~
+myqtl <- GRanges(c("Chr2", "Chr2", "Chr8"),
+                 IRanges(start = c(134620000, 48023000, 150341000),
+                         end   = c(134752000, 48046000, 150372000)))
+myqtl
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 3 ranges and 0 metadata columns:
+      seqnames              ranges strand
+         <Rle>           <IRanges>  <Rle>
+  [1]     Chr2 134620000-134752000      *
+  [2]     Chr2   48023000-48046000      *
+  [3]     Chr8 150341000-150372000      *
+  -------
+  seqinfo: 2 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+We can add some extra info, like row names and metadata columns.
+
+
+~~~
+names(myqtl) <- c("Yld1", "LA1", "LA2")
+myqtl$Trait <- c("Yield", "Leaf angle", "Leaf angle")
+myqtl
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 3 ranges and 1 metadata column:
+       seqnames              ranges strand |       Trait
+          <Rle>           <IRanges>  <Rle> | <character>
+  Yld1     Chr2 134620000-134752000      * |       Yield
+   LA1     Chr2   48023000-48046000      * |  Leaf angle
+   LA2     Chr8 150341000-150372000      * |  Leaf angle
+  -------
+  seqinfo: 2 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+Although this appears two-dimensional like a data frame, if we only want
+certain rows, we index it in a one-dimensional way like a vector.
+
+
+~~~
+myqtl[1]
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 1 range and 1 metadata column:
+       seqnames              ranges strand |       Trait
+          <Rle>           <IRanges>  <Rle> | <character>
+  Yld1     Chr2 134620000-134752000      * |       Yield
+  -------
+  seqinfo: 2 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+
+
+~~~
+myqtl["LA2"]
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 1 range and 1 metadata column:
+      seqnames              ranges strand |       Trait
+         <Rle>           <IRanges>  <Rle> | <character>
+  LA2     Chr8 150341000-150372000      * |  Leaf angle
+  -------
+  seqinfo: 2 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+
+
+~~~
+myqtl[myqtl$Trait == "Leaf angle"]
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 2 ranges and 1 metadata column:
+      seqnames              ranges strand |       Trait
+         <Rle>           <IRanges>  <Rle> | <character>
+  LA1     Chr2   48023000-48046000      * |  Leaf angle
+  LA2     Chr8 150341000-150372000      * |  Leaf angle
+  -------
+  seqinfo: 2 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+> ## Handy utility functions
+>
+> See `?IRanges::shift` for some useful functions for manipulating `GRanges`
+> objects.  The `width` function is also helpful if you want to know the size
+> of each range.  The `mcols` function retrieves all metadata columns, like our
+> "Trait" column. Check out `browseVignettes("GenomicRanges")` to learn even more.
+{: .callout}
+
+We can also import our gene annotations in to a `GRanges` object.  This should
+be familiar if you took the HPCBio introductory Bioconductor workshop this
+semester.
+
+
+~~~
+gtf0 <- rtracklayer::import("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3")
+gtf0
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 2819080 ranges and 20 metadata columns:
+            seqnames        ranges strand |   source            type     score
+               <Rle>     <IRanges>  <Rle> | <factor>        <factor> <numeric>
+        [1]        1   1-307041717      * |  wareLab  chromosome            NA
+        [2]        1   44289-49837      + |  gramene  gene                  NA
+        [3]        1   44289-49837      + |  gramene  mRNA                  NA
+        [4]        1   44289-44350      + |  gramene  five_prime_UTR        NA
+        [5]        1   44289-44947      + |  gramene  exon                  NA
+        ...      ...           ...    ... .      ...             ...       ...
+  [2819076]       Pt 140068-140361      + |  gramene mRNA                   NA
+  [2819077]       Pt 140068-140133      + |  gramene five_prime_UTR         NA
+  [2819078]       Pt 140068-140361      + |  gramene exon                   NA
+  [2819079]       Pt 140068-140361      + |  gramene CDS                    NA
+  [2819080]       Pt 140350-140361      + |  gramene three_prime_UTR        NA
+                phase                     ID        biotype    description
+            <integer>            <character>    <character>    <character>
+        [1]      <NA>           chromosome:1           <NA>           <NA>
+        [2]      <NA>    gene:Zm00001d027230 protein_coding Zm00001d027230
+        [3]      <NA> transcript:Zm00001d0.. protein_coding           <NA>
+        [4]      <NA>                   <NA>           <NA>           <NA>
+        [5]      <NA>                   <NA>           <NA>           <NA>
+        ...       ...                    ...            ...            ...
+  [2819076]      <NA> transcript:GRMZM5G85.. protein_coding           <NA>
+  [2819077]      <NA>                   <NA>           <NA>           <NA>
+  [2819078]      <NA>                   <NA>           <NA>           <NA>
+  [2819079]         0  CDS:GRMZM5G855343_P01           <NA>           <NA>
+  [2819080]      <NA>                   <NA>           <NA>           <NA>
+                   gene_id  logic_name                 Parent
+               <character> <character>        <CharacterList>
+        [1]           <NA>        <NA>                       
+        [2] Zm00001d027230  maker_gene                       
+        [3]           <NA>        <NA>    gene:Zm00001d027230
+        [4]           <NA>        <NA> transcript:Zm00001d0..
+        [5]           <NA>        <NA> transcript:Zm00001d0..
+        ...            ...         ...                    ...
+  [2819076]           <NA>        <NA>     gene:GRMZM5G855343
+  [2819077]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819078]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819079]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819080]           <NA>        <NA> transcript:GRMZM5G85..
+                  transcript_id                   Name constitutive
+                    <character>            <character>  <character>
+        [1]                <NA>                   <NA>         <NA>
+        [2]                <NA>                   <NA>         <NA>
+        [3] Zm00001d027230_T001                   <NA>         <NA>
+        [4]                <NA>                   <NA>         <NA>
+        [5]                <NA> Zm00001d027230_T001...            1
+        ...                 ...                    ...          ...
+  [2819076]   GRMZM5G855343_T01                   <NA>         <NA>
+  [2819077]                <NA>                   <NA>         <NA>
+  [2819078]                <NA> GRMZM5G855343_T01.ex..            1
+  [2819079]                <NA>                   <NA>         <NA>
+  [2819080]                <NA>                   <NA>         <NA>
+            ensembl_end_phase ensembl_phase                exon_id        rank
+                  <character>   <character>            <character> <character>
+        [1]              <NA>          <NA>                   <NA>        <NA>
+        [2]              <NA>          <NA>                   <NA>        <NA>
+        [3]              <NA>          <NA>                   <NA>        <NA>
+        [4]              <NA>          <NA>                   <NA>        <NA>
+        [5]                 0            -1 Zm00001d027230_T001...           1
+        ...               ...           ...                    ...         ...
+  [2819076]              <NA>          <NA>                   <NA>        <NA>
+  [2819077]              <NA>          <NA>                   <NA>        <NA>
+  [2819078]                -1            -1 GRMZM5G855343_T01.ex..           1
+  [2819079]              <NA>          <NA>                   <NA>        <NA>
+  [2819080]              <NA>          <NA>                   <NA>        <NA>
+                   protein_id           Alias Is_circular
+                  <character> <CharacterList> <character>
+        [1]              <NA>                        <NA>
+        [2]              <NA>                        <NA>
+        [3]              <NA>                        <NA>
+        [4]              <NA>                        <NA>
+        [5]              <NA>                        <NA>
+        ...               ...             ...         ...
+  [2819076]              <NA>                        <NA>
+  [2819077]              <NA>                        <NA>
+  [2819078]              <NA>                        <NA>
+  [2819079] GRMZM5G855343_P01                        <NA>
+  [2819080]              <NA>                        <NA>
+  -------
+  seqinfo: 267 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+Unfortunately, the chromosome names have been shortened and don't match the
+reference genome.  We'll find this problem with VCFs as well.  Here is how
+to fix it.
+
+
+~~~
+newnames <- as.character(seqnames(gtf0))
+tofix <- which(!newnames %in% seqnames(seqinfo(mygenome)))
+unique(newnames[tofix])
+~~~
+{: .language-r}
+
+
+
+~~~
+ [1] "1"  "10" "2"  "3"  "4"  "5"  "6"  "7"  "8"  "9"  "Mt"
+~~~
+{: .output}
+
+
+
+~~~
+newnames[newnames %in% as.character(1:10)] <- paste0("Chr", newnames[newnames %in% as.character(1:10)])
+tofix <- which(!newnames %in% seqnames(seqinfo(mygenome)))
+unique(newnames[tofix])
+~~~
+{: .language-r}
+
+
+
+~~~
+[1] "Mt"
+~~~
+{: .output}
+
+The mitochondrial genome is in the GFF but not the FASTA, but we will ignore that
+for now.  Continuing on with the fix:
+
+
+~~~
+gtf0a <- GRanges(newnames, ranges(gtf0))
+mcols(gtf0a) <- mcols(gtf0)
+gtf0a
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 2819080 ranges and 20 metadata columns:
+            seqnames        ranges strand |   source            type     score
+               <Rle>     <IRanges>  <Rle> | <factor>        <factor> <numeric>
+        [1]     Chr1   1-307041717      * |  wareLab  chromosome            NA
+        [2]     Chr1   44289-49837      * |  gramene  gene                  NA
+        [3]     Chr1   44289-49837      * |  gramene  mRNA                  NA
+        [4]     Chr1   44289-44350      * |  gramene  five_prime_UTR        NA
+        [5]     Chr1   44289-44947      * |  gramene  exon                  NA
+        ...      ...           ...    ... .      ...             ...       ...
+  [2819076]       Pt 140068-140361      * |  gramene mRNA                   NA
+  [2819077]       Pt 140068-140133      * |  gramene five_prime_UTR         NA
+  [2819078]       Pt 140068-140361      * |  gramene exon                   NA
+  [2819079]       Pt 140068-140361      * |  gramene CDS                    NA
+  [2819080]       Pt 140350-140361      * |  gramene three_prime_UTR        NA
+                phase                     ID        biotype    description
+            <integer>            <character>    <character>    <character>
+        [1]      <NA>           chromosome:1           <NA>           <NA>
+        [2]      <NA>    gene:Zm00001d027230 protein_coding Zm00001d027230
+        [3]      <NA> transcript:Zm00001d0.. protein_coding           <NA>
+        [4]      <NA>                   <NA>           <NA>           <NA>
+        [5]      <NA>                   <NA>           <NA>           <NA>
+        ...       ...                    ...            ...            ...
+  [2819076]      <NA> transcript:GRMZM5G85.. protein_coding           <NA>
+  [2819077]      <NA>                   <NA>           <NA>           <NA>
+  [2819078]      <NA>                   <NA>           <NA>           <NA>
+  [2819079]         0  CDS:GRMZM5G855343_P01           <NA>           <NA>
+  [2819080]      <NA>                   <NA>           <NA>           <NA>
+                   gene_id  logic_name                 Parent
+               <character> <character>        <CharacterList>
+        [1]           <NA>        <NA>                       
+        [2] Zm00001d027230  maker_gene                       
+        [3]           <NA>        <NA>    gene:Zm00001d027230
+        [4]           <NA>        <NA> transcript:Zm00001d0..
+        [5]           <NA>        <NA> transcript:Zm00001d0..
+        ...            ...         ...                    ...
+  [2819076]           <NA>        <NA>     gene:GRMZM5G855343
+  [2819077]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819078]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819079]           <NA>        <NA> transcript:GRMZM5G85..
+  [2819080]           <NA>        <NA> transcript:GRMZM5G85..
+                  transcript_id                   Name constitutive
+                    <character>            <character>  <character>
+        [1]                <NA>                   <NA>         <NA>
+        [2]                <NA>                   <NA>         <NA>
+        [3] Zm00001d027230_T001                   <NA>         <NA>
+        [4]                <NA>                   <NA>         <NA>
+        [5]                <NA> Zm00001d027230_T001...            1
+        ...                 ...                    ...          ...
+  [2819076]   GRMZM5G855343_T01                   <NA>         <NA>
+  [2819077]                <NA>                   <NA>         <NA>
+  [2819078]                <NA> GRMZM5G855343_T01.ex..            1
+  [2819079]                <NA>                   <NA>         <NA>
+  [2819080]                <NA>                   <NA>         <NA>
+            ensembl_end_phase ensembl_phase                exon_id        rank
+                  <character>   <character>            <character> <character>
+        [1]              <NA>          <NA>                   <NA>        <NA>
+        [2]              <NA>          <NA>                   <NA>        <NA>
+        [3]              <NA>          <NA>                   <NA>        <NA>
+        [4]              <NA>          <NA>                   <NA>        <NA>
+        [5]                 0            -1 Zm00001d027230_T001...           1
+        ...               ...           ...                    ...         ...
+  [2819076]              <NA>          <NA>                   <NA>        <NA>
+  [2819077]              <NA>          <NA>                   <NA>        <NA>
+  [2819078]                -1            -1 GRMZM5G855343_T01.ex..           1
+  [2819079]              <NA>          <NA>                   <NA>        <NA>
+  [2819080]              <NA>          <NA>                   <NA>        <NA>
+                   protein_id           Alias Is_circular
+                  <character> <CharacterList> <character>
+        [1]              <NA>                        <NA>
+        [2]              <NA>                        <NA>
+        [3]              <NA>                        <NA>
+        [4]              <NA>                        <NA>
+        [5]              <NA>                        <NA>
+        ...               ...             ...         ...
+  [2819076]              <NA>                        <NA>
+  [2819077]              <NA>                        <NA>
+  [2819078]              <NA>                        <NA>
+  [2819079] GRMZM5G855343_P01                        <NA>
+  [2819080]              <NA>                        <NA>
+  -------
+  seqinfo: 267 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+We can free up memory by removing `gtf0` now that we don't need it.
+
+
+~~~
+rm(gtf0)
+~~~
+{: .language-r}
+
+> ## Challenge: Subset GFF
+> 
+> Make a `GRanges` object called `gtf1` that only contains gene locations, _i.e._
+> it only contains rows where the "type" is "gene".  Be sure to start with our
+> `gtf0a` object.
+>
+> > ## Solution
+> >
+> > 
+> > ~~~
+> > gtf1 <- gtf0a[gtf0a$type == "gene"]
+> > gtf1
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> > GRanges object with 39498 ranges and 20 metadata columns:
+> >           seqnames        ranges strand |   source     type     score     phase
+> >              <Rle>     <IRanges>  <Rle> | <factor> <factor> <numeric> <integer>
+> >       [1]     Chr1   44289-49837      * |  gramene     gene        NA      <NA>
+> >       [2]     Chr1   50877-55716      * |  gramene     gene        NA      <NA>
+> >       [3]     Chr1   92299-95134      * |  gramene     gene        NA      <NA>
+> >       [4]     Chr1 111655-118312      * |  gramene     gene        NA      <NA>
+> >       [5]     Chr1 118683-119739      * |  gramene     gene        NA      <NA>
+> >       ...      ...           ...    ... .      ...      ...       ...       ...
+> >   [39494]       Pt 134341-134862      * |  gramene     gene        NA      <NA>
+> >   [39495]       Pt 134923-135222      * |  gramene     gene        NA      <NA>
+> >   [39496]       Pt 138323-139807      * |  gramene     gene        NA      <NA>
+> >   [39497]       Pt 139824-140048      * |  gramene     gene        NA      <NA>
+> >   [39498]       Pt 140068-140361      * |  gramene     gene        NA      <NA>
+> >                            ID        biotype            description
+> >                   <character>    <character>            <character>
+> >       [1] gene:Zm00001d027230 protein_coding         Zm00001d027230
+> >       [2] gene:Zm00001d027231 protein_coding         Zm00001d027231
+> >       [3] gene:Zm00001d027232 protein_coding         Zm00001d027232
+> >       [4] gene:Zm00001d027233 protein_coding         Zm00001d027233
+> >       [5] gene:Zm00001d027234 protein_coding         Zm00001d027234
+> >       ...                 ...            ...                    ...
+> >   [39494]  gene:GRMZM5G885905 protein_coding Uncharacterized prot..
+> >   [39495]  gene:GRMZM5G866761 protein_coding Putative uncharacter..
+> >   [39496]  gene:GRMZM5G818111 protein_coding                   <NA>
+> >   [39497]  gene:GRMZM5G866064 protein_coding                   <NA>
+> >   [39498]  gene:GRMZM5G855343 protein_coding                   <NA>
+> >                  gene_id  logic_name          Parent transcript_id        Name
+> >              <character> <character> <CharacterList>   <character> <character>
+> >       [1] Zm00001d027230  maker_gene                          <NA>        <NA>
+> >       [2] Zm00001d027231  maker_gene                          <NA>        <NA>
+> >       [3] Zm00001d027232  maker_gene                          <NA>        <NA>
+> >       [4] Zm00001d027233  maker_gene                          <NA>        <NA>
+> >       [5] Zm00001d027234  maker_gene                          <NA>        <NA>
+> >       ...            ...         ...             ...           ...         ...
+> >   [39494]  GRMZM5G885905 genebuilder                          <NA>     ycf73-A
+> >   [39495]  GRMZM5G866761 genebuilder                          <NA>     ycf15-A
+> >   [39496]  GRMZM5G818111 genebuilder                          <NA>        <NA>
+> >   [39497]  GRMZM5G866064 genebuilder                          <NA>        <NA>
+> >   [39498]  GRMZM5G855343 genebuilder                          <NA>        <NA>
+> >           constitutive ensembl_end_phase ensembl_phase     exon_id        rank
+> >            <character>       <character>   <character> <character> <character>
+> >       [1]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >       [2]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >       [3]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >       [4]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >       [5]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >       ...          ...               ...           ...         ...         ...
+> >   [39494]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >   [39495]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >   [39496]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >   [39497]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >   [39498]         <NA>              <NA>          <NA>        <NA>        <NA>
+> >            protein_id           Alias Is_circular
+> >           <character> <CharacterList> <character>
+> >       [1]        <NA>                        <NA>
+> >       [2]        <NA>                        <NA>
+> >       [3]        <NA>                        <NA>
+> >       [4]        <NA>                        <NA>
+> >       [5]        <NA>                        <NA>
+> >       ...         ...             ...         ...
+> >   [39494]        <NA>                        <NA>
+> >   [39495]        <NA>                        <NA>
+> >   [39496]        <NA>                        <NA>
+> >   [39497]        <NA>                        <NA>
+> >   [39498]        <NA>                        <NA>
+> >   -------
+> >   seqinfo: 267 sequences from an unspecified genome; no seqlengths
+> > ~~~
+> > {: .output}
+> {: .solution}
+{: .challenge}
+
+Here's where things start to get really helpful.  What genes are within our QTL
+ranges?
+
+
+~~~
+qtl_genes <- subsetByOverlaps(gtf1, myqtl)
+qtl_genes
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 5 ranges and 20 metadata columns:
+      seqnames              ranges strand |   source     type     score
+         <Rle>           <IRanges>  <Rle> | <factor> <factor> <numeric>
+  [1]     Chr2 134686452-134689699      * |  gramene     gene        NA
+  [2]     Chr2 134712849-134713289      * |  gramene     gene        NA
+  [3]     Chr2 134747713-134748868      * |  gramene     gene        NA
+  [4]     Chr8 150334356-150342192      * |  gramene     gene        NA
+  [5]     Chr8 150346180-150347905      * |  gramene     gene        NA
+          phase                  ID        biotype            description
+      <integer>         <character>    <character>            <character>
+  [1]      <NA> gene:Zm00001d004734 protein_coding         Zm00001d004734
+  [2]      <NA> gene:Zm00001d004735 protein_coding         Zm00001d004735
+  [3]      <NA> gene:Zm00001d004736 protein_coding         Zm00001d004736
+  [4]      <NA> gene:Zm00001d011430 protein_coding         Zm00001d011430
+  [5]      <NA> gene:Zm00001d011431 protein_coding GPI-anchored protein..
+             gene_id  logic_name          Parent transcript_id        Name
+         <character> <character> <CharacterList>   <character> <character>
+  [1] Zm00001d004734  maker_gene                          <NA>        <NA>
+  [2] Zm00001d004735  maker_gene                          <NA>        <NA>
+  [3] Zm00001d004736  maker_gene                          <NA>        <NA>
+  [4] Zm00001d011430  maker_gene                          <NA>        <NA>
+  [5] Zm00001d011431  maker_gene                          <NA>        <NA>
+      constitutive ensembl_end_phase ensembl_phase     exon_id        rank
+       <character>       <character>   <character> <character> <character>
+  [1]         <NA>              <NA>          <NA>        <NA>        <NA>
+  [2]         <NA>              <NA>          <NA>        <NA>        <NA>
+  [3]         <NA>              <NA>          <NA>        <NA>        <NA>
+  [4]         <NA>              <NA>          <NA>        <NA>        <NA>
+  [5]         <NA>              <NA>          <NA>        <NA>        <NA>
+       protein_id           Alias Is_circular
+      <character> <CharacterList> <character>
+  [1]        <NA>                        <NA>
+  [2]        <NA>                        <NA>
+  [3]        <NA>                        <NA>
+  [4]        <NA>                        <NA>
+  [5]        <NA>                        <NA>
+  -------
+  seqinfo: 267 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+## DNA sequences
+
+Now let's get the sequences for those genes.  You could do this using any
+`GRanges` object.
+
+
+~~~
+qtl_genes_seq <- scanFa(mygenome, qtl_genes)
+qtl_genes_seq
+~~~
+{: .language-r}
+
+
+
+~~~
+DNAStringSet object of length 5:
+    width seq                                               names               
+[1]  3248 TTAAAACTTAAAATGTAATACAT...CCGGGAGACTGGACTTAGAAAGC Chr2
+[2]   441 TCAAATCCTTGCAAGGTGCCGCC...CCAAGGGGCTCATTTGAGGCCAT Chr2
+[3]  1156 CTACATCATCTACCGTGCCTGTT...CTGATAAGTGATAAGTAAACAAG Chr2
+[4]  7837 CAGCAGACTGCACCACACGGCAC...AATAGTATATATATTTTGTCTGA Chr8
+[5]  1726 CTACTTTACACCTCTTCTTCTTC...AAATATATAATGGCCATTCCACT Chr8
+~~~
+{: .output}
+
+This is a `DNAStringSet`, which is how you'll typically find DNA sequences
+represented.  You can do handy things like take the reverse complement, or
+translate to amino acids:
+
+
+~~~
+reverseComplement(qtl_genes_seq)
+~~~
+{: .language-r}
+
+
+
+~~~
+DNAStringSet object of length 5:
+    width seq                                               names               
+[1]  3248 GCTTTCTAAGTCCAGTCTCCCGG...ATGTATTACATTTTAAGTTTTAA Chr2
+[2]   441 ATGGCCTCAAATGAGCCCCTTGG...GGCGGCACCTTGCAAGGATTTGA Chr2
+[3]  1156 CTTGTTTACTTATCACTTATCAG...AACAGGCACGGTAGATGATGTAG Chr2
+[4]  7837 TCAGACAAAATATATATACTATT...GTGCCGTGTGGTGCAGTCTGCTG Chr8
+[5]  1726 AGTGGAATGGCCATTATATATTT...GAAGAAGAAGAGGTGTAAAGTAG Chr8
+~~~
+{: .output}
+
+
+
+~~~
+translate(qtl_genes_seq)
+~~~
+{: .language-r}
+
+
+
+~~~
+AAStringSet object of length 5:
+    width seq                                               names               
+[1]  1082 LKLKM*YIQLIYYFS*YHMGKNS...EAAVVSFPTFLSCLFCPGDWT*K Chr2
+[2]   147 SNPCKVPP*PKHTMFRLHLHKAI...WFFRCTSTFSDVRDGAKGLI*GH Chr2
+[3]   385 LHHLPCLFF*DS*CHQAGILFNS...LYRFCVYARLEKLALY**VISKQ Chr2
+[4]  2612 QQTAPHGTWHCQPRRARPIYPQS...CKTNQILDAWI*IQIKIVYIFCL Chr8
+[5]   575 LLYTSSSSSCSSCPLPLGFLCSH...PSSSRCTRCLYIHTCLNI*WPFH Chr8
+~~~
+{: .output}
+
+Of course, this is the full gene sequence containing exons and introns, so
+we don't get the correct amino acid sequence like we would if we were using
+the CDS.
+
+> ## Extracting transcript sequences
+>
+> If you do want to get the sequences of transcripts or CDS from a genome,
+> see `?GenomicFeatures::extractTranscriptSeqs`.  You would need to import
+> the GFF with `makeTxDbFromGFF` rather than `rtracklayer::import`.
+{: .callout}
+
+If you need to create a `DNAStringSet` from scratch, you can do it directly from
+a character vector.
+
+
+~~~
+test_dna <- DNAStringSet(c("AGGG", "TCAGATTTAAC", "TC"))
+test_dna
+~~~
+{: .language-r}
+
+
+
+~~~
+DNAStringSet object of length 3:
+    width seq
+[1]     4 AGGG
+[2]    11 TCAGATTTAAC
+[3]     2 TC
+~~~
+{: .output}
+
+> ## Bonus Challenge: The whole thing
+>
+> How would you import the full sequence for chromosome 3?
+>
+> > ## Solution
+> >
+> > 
+> > ~~~
+> > chr3length <- seqlengths(seqinfo(mygenome))["Chr3"]
+> > chr3range <- GRanges("Chr3", IRanges(start = 1, end = chr3length))
+> > chr3seq <- scanFa(mygenome, chr3range)
+> > ~~~
+> > {: .language-r}
+> {: .solution}
+{: .challenge}
+
+
+
 
 {% include links.md %}
