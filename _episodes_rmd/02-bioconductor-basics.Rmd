@@ -1,0 +1,94 @@
+---
+source: Rmd
+title: "Bioconductor basics"
+teaching: 60
+exercises: 15
+questions:
+- "What are the Bioconductor classes for the types of data we would find in a VCF?"
+objectives:
+- "Create a GRanges object to indicate regions of the genome that you are interested in."
+- "Load DNA sequences from a reference genome."
+- "Extract assay metadata from the results of an experiment."
+- "Find help pages to learn more about what you can do with this data."
+keypoints:
+- "FaFile creates a pointer to a reference genome file on your computer."
+- "An index file allows quick access to specific information from large files."
+- "GRanges stores positions within a genome for any type of feature (SNP, exon, etc.)"
+- "DNAStringSet stores DNA sequences."
+- "SummarizedExperiment stores the results of a set of assays across a set of samples."
+---
+
+```{r, include=FALSE}
+source("../bin/chunk-options.R")
+knitr_fig_path("02-")
+```
+
+Bioconductor packages are all designed to work together.  This is why, when you
+tried installing three packages, it probably installed dozens of dependencies.
+The benefit is that the same functions are useful across many different
+bioinformatics workflows.  To explore those building blocks, we'll load a few of
+those dependencies.
+
+```{r, message = FALSE, warning = FALSE}
+library(GenomicRanges)
+library(Biostrings)
+library(Rsamtools)
+library(SummarizedExperiment)
+```
+
+## Reference genome
+
+In the [setup](setup.md), you downloaded and unzipped a reference genome file.
+
+```{r}
+ref_file <- "data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta"
+```
+
+You should build an _index_ for the file.  This is another file, ending in
+`.fai`, that indicates where in the file each chromosome starts.  It enables
+quick access to specific regions of the genome.
+
+```{r, eval = FALSE}
+indexFa(ref_file)
+```
+
+Now we can import the reference genome.
+
+```{r}
+mygenome <- FaFile(ref_file)
+```
+
+If we try to print it out:
+
+```{r}
+mygenome
+```
+
+Hmm, we don't see any DNA sequences, just names of files.  We haven't actually
+loaded the data into R, just told R where to look when we want the data.  This
+saves RAM since we don't usually need to analyze the whole genome at once.
+
+We can get some information about the genome:
+
+```{r}
+seqinfo(mygenome)
+```
+
+There are chromosomes, and some smaller contigs.
+
+> ## Challenge: Chromosome names
+>
+> Look at the help page for `seqinfo`.  Can you find a way to view all of the sequence names?
+>
+> > ## Solution
+> > 
+> > There is a `seqnames` function.  It doesn't work directly on a `FaFile`
+> > object however.  It works on the `SeqInfo` object returned by `seqinfo`.
+> >
+> > ```{r}
+> > seqnames(seqinfo(mygenome))
+> > ```
+> {: .solution}
+{: .challenge}
+
+{% include links.md %}
