@@ -10,6 +10,10 @@ Attendees will learn how to read, filter, and interrogate variant calls that are
 
 Before the workshop starts, please follow the [setup](setup.md) instructions.
 
+This workshop was developed by Lindsay Clark at HPCBio, Roy J. Carver
+Biotechnology Center, University of Illinois, Urbana-Champaign, using a
+website template developed by The Carpentries.
+
 For guidelines on how to help improve this lesson,
 please see [the contribution guidelines][contributing].
 
