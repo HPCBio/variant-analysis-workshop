@@ -23,7 +23,7 @@ keypoints:
 
 
 Bioconductor packages are all designed to work together.  This is why, when you
-tried installing three packages, it probably installed dozens of dependencies.
+tried installing four packages, it probably installed dozens of dependencies.
 The benefit is that the same functions are useful across many different
 bioinformatics workflows.  To explore those building blocks, we'll load a few of
 those dependencies.
@@ -34,6 +34,14 @@ library(GenomicRanges)
 library(Biostrings)
 library(Rsamtools)
 library(SummarizedExperiment)
+~~~
+{: .language-r}
+
+We'll also load `magrittr` to make some code more readable.
+
+
+~~~
+library(magrittr)
 ~~~
 {: .language-r}
 
@@ -123,7 +131,7 @@ There are chromosomes, and some smaller contigs.
 > Look at the help page for `seqinfo`.  Can you find a way to view all of the sequence names?
 >
 > > ## Solution
-> > 
+> >
 > > There is a `seqnames` function.  It doesn't work directly on a `FaFile`
 > > object however.  It works on the `SeqInfo` object returned by `seqinfo`.
 > >
@@ -571,7 +579,7 @@ rm(gtf0)
 {: .language-r}
 
 > ## Challenge: Subset GFF
-> 
+>
 > Make a `GRanges` object called `gtf1` that only contains gene locations, _i.e._
 > it only contains rows where the "type" is "gene".  Be sure to start with our
 > `gtf0a` object.
@@ -715,6 +723,9 @@ GRanges object with 5 ranges and 20 metadata columns:
 ~~~
 {: .output}
 
+Later, when we import a VCF, the positions of the variants within the genome
+will be stored as `GRanges`.
+
 ## DNA sequences
 
 Now let's get the sequences for those genes.  You could do this using any
@@ -833,5 +844,274 @@ DNAStringSet object of length 3:
 
 
 
+When we import data from VCF, the reference and alternative alleles are stored
+in `DNAStringSet`s.
+
+## Experimental results
+
+The `SummarizedExperiment` class contains matrix-like data, with assays in
+rows and samples in columns.  Like much of Bioconductor, it was originally
+designed for microarray data, where there would be many probes on a microarray,
+each representing a gene, and the fluorescence of that probe indicated
+expression levels of the gene in that sample.  However, `SummarizedExperiment`
+is flexible enough to also contain RNA-seq data, or in our case, genotyping
+results.
+
+The `RangedSummarizedExperiment` class is exactly like `SummarizedExperiment`,
+except that each assay is associated with a location within the genome.  This
+makes sense for our variant data, where each "assay" is a SNP.  It also makes
+sense for gene expression data, where each gene has a location within the
+genome.  Below we'll load an example expression dataset from Bioconductor.
+
+
+~~~
+data(airway, package="airway")
+
+airway
+~~~
+{: .language-r}
+
+
+
+~~~
+class: RangedSummarizedExperiment 
+dim: 64102 8 
+metadata(1): ''
+assays(1): counts
+rownames(64102): ENSG00000000003 ENSG00000000005 ... LRG_98 LRG_99
+rowData names(0):
+colnames(8): SRR1039508 SRR1039509 ... SRR1039520 SRR1039521
+colData names(9): SampleName cell ... Sample BioSample
+~~~
+{: .output}
+
+We can see that there are row names that are gene identities, and column names
+that are sample identifiers.  There are eight samples and 64,102 genes.
+One handy thing about the printout is that it lists functions we can use to
+access the data.  Here's some metadata about the samples:
+
+
+~~~
+colData(airway)
+~~~
+{: .language-r}
+
+
+
+~~~
+DataFrame with 8 rows and 9 columns
+           SampleName     cell      dex    albut        Run avgLength
+             <factor> <factor> <factor> <factor>   <factor> <integer>
+SRR1039508 GSM1275862  N61311     untrt    untrt SRR1039508       126
+SRR1039509 GSM1275863  N61311     trt      untrt SRR1039509       126
+SRR1039512 GSM1275866  N052611    untrt    untrt SRR1039512       126
+SRR1039513 GSM1275867  N052611    trt      untrt SRR1039513        87
+SRR1039516 GSM1275870  N080611    untrt    untrt SRR1039516       120
+SRR1039517 GSM1275871  N080611    trt      untrt SRR1039517       126
+SRR1039520 GSM1275874  N061011    untrt    untrt SRR1039520       101
+SRR1039521 GSM1275875  N061011    trt      untrt SRR1039521        98
+           Experiment    Sample    BioSample
+             <factor>  <factor>     <factor>
+SRR1039508  SRX384345 SRS508568 SAMN02422669
+SRR1039509  SRX384346 SRS508567 SAMN02422675
+SRR1039512  SRX384349 SRS508571 SAMN02422678
+SRR1039513  SRX384350 SRS508572 SAMN02422670
+SRR1039516  SRX384353 SRS508575 SAMN02422682
+SRR1039517  SRX384354 SRS508576 SAMN02422673
+SRR1039520  SRX384357 SRS508579 SAMN02422683
+SRR1039521  SRX384358 SRS508580 SAMN02422677
+~~~
+{: .output}
+
+And the read counts for gene expression (I am using the `head` function to avoid
+printing them all out):
+
+
+~~~
+assays(airway)$counts %>% head(10)
+~~~
+{: .language-r}
+
+
+
+~~~
+                SRR1039508 SRR1039509 SRR1039512 SRR1039513 SRR1039516
+ENSG00000000003        679        448        873        408       1138
+ENSG00000000005          0          0          0          0          0
+ENSG00000000419        467        515        621        365        587
+ENSG00000000457        260        211        263        164        245
+ENSG00000000460         60         55         40         35         78
+ENSG00000000938          0          0          2          0          1
+ENSG00000000971       3251       3679       6177       4252       6721
+ENSG00000001036       1433       1062       1733        881       1424
+ENSG00000001084        519        380        595        493        820
+ENSG00000001167        394        236        464        175        658
+                SRR1039517 SRR1039520 SRR1039521
+ENSG00000000003       1047        770        572
+ENSG00000000005          0          0          0
+ENSG00000000419        799        417        508
+ENSG00000000457        331        233        229
+ENSG00000000460         63         76         60
+ENSG00000000938          0          0          0
+ENSG00000000971      11027       5176       7995
+ENSG00000001036       1439       1359       1109
+ENSG00000001084        714        696        704
+ENSG00000001167        584        360        269
+~~~
+{: .output}
+
+> ## Challenge: Gene and sample names
+>
+> If you wanted a vector of gene IDs or a vector of sample names, what functions
+> can you use to get those?
+>
+> > ## Solution
+> > 
+> > 
+> > ~~~
+> > geneids <- rownames(airway)
+> > head(geneids, 10)
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> >  [1] "ENSG00000000003" "ENSG00000000005" "ENSG00000000419" "ENSG00000000457"
+> >  [5] "ENSG00000000460" "ENSG00000000938" "ENSG00000000971" "ENSG00000001036"
+> >  [9] "ENSG00000001084" "ENSG00000001167"
+> > ~~~
+> > {: .output}
+> > 
+> > 
+> > 
+> > ~~~
+> > samples <- colnames(airway)
+> > samples
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> > [1] "SRR1039508" "SRR1039509" "SRR1039512" "SRR1039513" "SRR1039516"
+> > [6] "SRR1039517" "SRR1039520" "SRR1039521"
+> > ~~~
+> > {: .output}
+> >
+> > It also wouldn't be wrong, just more complicated, to get them like this:
+> >
+> > 
+> > ~~~
+> > geneids <- rownames(assays(airway)$counts)
+> > samples <- colnames(assays(airway)$counts)
+> > ~~~
+> > {: .language-r}
+> {: .solution}
+{: .challenge}
+
+The `rowRanges` function gets us the `GRanges` object associated with each gene.
+
+
+~~~
+rowRanges(airway)
+~~~
+{: .language-r}
+
+
+
+~~~
+GRangesList object of length 64102:
+$ENSG00000000003
+GRanges object with 17 ranges and 2 metadata columns:
+       seqnames            ranges strand |   exon_id       exon_name
+          <Rle>         <IRanges>  <Rle> | <integer>     <character>
+   [1]        X 99883667-99884983      - |    667145 ENSE00001459322
+   [2]        X 99885756-99885863      - |    667146 ENSE00000868868
+   [3]        X 99887482-99887565      - |    667147 ENSE00000401072
+   [4]        X 99887538-99887565      - |    667148 ENSE00001849132
+   [5]        X 99888402-99888536      - |    667149 ENSE00003554016
+   ...      ...               ...    ... .       ...             ...
+  [13]        X 99890555-99890743      - |    667156 ENSE00003512331
+  [14]        X 99891188-99891686      - |    667158 ENSE00001886883
+  [15]        X 99891605-99891803      - |    667159 ENSE00001855382
+  [16]        X 99891790-99892101      - |    667160 ENSE00001863395
+  [17]        X 99894942-99894988      - |    667161 ENSE00001828996
+  -------
+  seqinfo: 722 sequences (1 circular) from an unspecified genome
+
+...
+<64101 more elements>
+~~~
+{: .output}
+
+The first gene is on the X chromosome.  All the exons are listed individually.
+Because of this, the `GRanges` for each gene are compiled into a `GRangesList`
+for the whole dataset.  The use of `GRanges` means we could subset the whole
+dataset by genomic position.  Let's say we're just interested in a certain
+region of chromosome 4:
+
+
+~~~
+myregion <- GRanges("4", IRanges(start = 82660000, end = 119280000))
+
+airway4 <- subsetByOverlaps(airway, myregion)
+
+airway4
+~~~
+{: .language-r}
+
+
+
+~~~
+class: RangedSummarizedExperiment 
+dim: 458 8 
+metadata(1): ''
+assays(1): counts
+rownames(458): ENSG00000005059 ENSG00000029559 ... ENSG00000273389
+  ENSG00000273447
+rowData names(0):
+colnames(8): SRR1039508 SRR1039509 ... SRR1039520 SRR1039521
+colData names(9): SampleName cell ... Sample BioSample
+~~~
+{: .output}
+
+
+
+~~~
+rowRanges(airway4)
+~~~
+{: .language-r}
+
+
+
+~~~
+GRangesList object of length 458:
+$ENSG00000005059
+GRanges object with 20 ranges and 2 metadata columns:
+       seqnames              ranges strand |   exon_id       exon_name
+          <Rle>           <IRanges>  <Rle> | <integer>     <character>
+   [1]        4 110481361-110481592      + |    161238 ENSE00002034107
+   [2]        4 110481365-110481592      + |    161239 ENSE00002071601
+   [3]        4 110481368-110481592      + |    161240 ENSE00002078395
+   [4]        4 110482146-110482173      + |    161241 ENSE00002027139
+   [5]        4 110569640-110569805      + |    161242 ENSE00001695709
+   ...      ...                 ...    ... .       ...             ...
+  [16]        4 110605596-110606523      + |    161254 ENSE00001890650
+  [17]        4 110605599-110605802      + |    161255 ENSE00000736563
+  [18]        4 110606407-110606523      + |    161256 ENSE00000333811
+  [19]        4 110608671-110608872      + |    161257 ENSE00001847574
+  [20]        4 110608671-110609874      + |    161258 ENSE00001866116
+  -------
+  seqinfo: 722 sequences (1 circular) from an unspecified genome
+
+...
+<457 more elements>
+~~~
+{: .output}
+
+Now we just have 458 genes in that region.
+
+In the next episode, we will import data from a VCF.
 
 {% include links.md %}

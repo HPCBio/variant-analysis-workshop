@@ -24,7 +24,7 @@ knitr_fig_path("02-")
 ```
 
 Bioconductor packages are all designed to work together.  This is why, when you
-tried installing three packages, it probably installed dozens of dependencies.
+tried installing four packages, it probably installed dozens of dependencies.
 The benefit is that the same functions are useful across many different
 bioinformatics workflows.  To explore those building blocks, we'll load a few of
 those dependencies.
@@ -34,6 +34,12 @@ library(GenomicRanges)
 library(Biostrings)
 library(Rsamtools)
 library(SummarizedExperiment)
+```
+
+We'll also load `magrittr` to make some code more readable.
+
+```{r, message = FALSE, warning = FALSE}
+library(magrittr)
 ```
 
 ## Reference genome
@@ -81,7 +87,7 @@ There are chromosomes, and some smaller contigs.
 > Look at the help page for `seqinfo`.  Can you find a way to view all of the sequence names?
 >
 > > ## Solution
-> > 
+> >
 > > There is a `seqnames` function.  It doesn't work directly on a `FaFile`
 > > object however.  It works on the `SeqInfo` object returned by `seqinfo`.
 > >
@@ -169,7 +175,7 @@ rm(gtf0)
 ```
 
 > ## Challenge: Subset GFF
-> 
+>
 > Make a `GRanges` object called `gtf1` that only contains gene locations, _i.e._
 > it only contains rows where the "type" is "gene".  Be sure to start with our
 > `gtf0a` object.
@@ -190,6 +196,9 @@ ranges?
 qtl_genes <- subsetByOverlaps(gtf1, myqtl)
 qtl_genes
 ```
+
+Later, when we import a VCF, the positions of the variants within the genome
+will be stored as `GRanges`.
 
 ## DNA sequences
 
@@ -247,5 +256,94 @@ test_dna
 rm(chr3seq)
 ```
 
+When we import data from VCF, the reference and alternative alleles are stored
+in `DNAStringSet`s.
+
+## Experimental results
+
+The `SummarizedExperiment` class contains matrix-like data, with assays in
+rows and samples in columns.  Like much of Bioconductor, it was originally
+designed for microarray data, where there would be many probes on a microarray,
+each representing a gene, and the fluorescence of that probe indicated
+expression levels of the gene in that sample.  However, `SummarizedExperiment`
+is flexible enough to also contain RNA-seq data, or in our case, genotyping
+results.
+
+The `RangedSummarizedExperiment` class is exactly like `SummarizedExperiment`,
+except that each assay is associated with a location within the genome.  This
+makes sense for our variant data, where each "assay" is a SNP.  It also makes
+sense for gene expression data, where each gene has a location within the
+genome.  Below we'll load an example expression dataset from Bioconductor.
+
+```{r}
+data(airway, package="airway")
+
+airway
+```
+
+We can see that there are row names that are gene identities, and column names
+that are sample identifiers.  There are eight samples and 64,102 genes.
+One handy thing about the printout is that it lists functions we can use to
+access the data.  Here's some metadata about the samples:
+
+```{r}
+colData(airway)
+```
+
+And the read counts for gene expression (I am using the `head` function to avoid
+printing them all out):
+
+```{r}
+assays(airway)$counts %>% head(10)
+```
+
+> ## Challenge: Gene and sample names
+>
+> If you wanted a vector of gene IDs or a vector of sample names, what functions
+> can you use to get those?
+>
+> > ## Solution
+> > 
+> > ```{r}
+> > geneids <- rownames(airway)
+> > head(geneids, 10)
+> > samples <- colnames(airway)
+> > samples
+> > ```
+> >
+> > It also wouldn't be wrong, just more complicated, to get them like this:
+> >
+> > ```{r}
+> > geneids <- rownames(assays(airway)$counts)
+> > samples <- colnames(assays(airway)$counts)
+> > ```
+> {: .solution}
+{: .challenge}
+
+The `rowRanges` function gets us the `GRanges` object associated with each gene.
+
+```{r}
+rowRanges(airway)
+```
+
+The first gene is on the X chromosome.  All the exons are listed individually.
+Because of this, the `GRanges` for each gene are compiled into a `GRangesList`
+for the whole dataset.  The use of `GRanges` means we could subset the whole
+dataset by genomic position.  Let's say we're just interested in a certain
+region of chromosome 4:
+
+```{r}
+myregion <- GRanges("4", IRanges(start = 82660000, end = 119280000))
+
+airway4 <- subsetByOverlaps(airway, myregion)
+
+airway4
+
+rowRanges(airway4)
+```
+
+Now we just have 458 genes in that region.
+
+In the next episode, we will import data from a VCF.
 
 {% include links.md %}

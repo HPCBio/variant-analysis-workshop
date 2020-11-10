@@ -36,7 +36,15 @@ everything correctly it can take a few rounds.
 Additionally, you should run code to install packages that we will need.
 
 ``` r
-BiocManager::install(c("VariantAnnotation", "snpStats", "GenomicFeatures"))
+BiocManager::install(c("VariantAnnotation", "snpStats", "GenomicFeatures",
+                       "airway"))
+```
+
+From CRAN, we'll install `magrittr`, which will let us use the `%>%` (pipe)
+symbol to make some code more readable.
+
+``` r
+install.packages("magrittr")
 ```
 
 To make sure it worked, run the code
@@ -45,6 +53,7 @@ To make sure it worked, run the code
 library(VariantAnnotation)
 library(snpStats)
 library(GenomicFeatures)
+library(magrittr)
 ```
 
 Please complete all of the above installations at least a few hours before the
