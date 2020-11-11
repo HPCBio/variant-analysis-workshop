@@ -81,8 +81,9 @@ to your computer and unzip them (using `gunzip` on Linux or Mac, or
 
 [B73 v4 gene annotations](https://download.maizegdb.org/Zm-B73-REFERENCE-GRAMENE-4.0/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3.gz)
 
-You should also download the example VCF that we'll be working with. **Add link**
-It is derived from a
+You should also download the
+[example VCF](https://github.com/HPCBio/variant-analysis-workshop/raw/gh-pages/_episodes_rmd/data/hmp321_agpv4_chr1_subset.vcf.bgz)
+that we'll be working with.  It is derived from a
 [panel of 1210 maize lines](http://cbsusrv04.tc.cornell.edu/users/panzea/download.aspx?filegroupid=34)
 ([Bukowski et al., 2018](https://doi.org/10.1093/gigascience/gix134])).
 

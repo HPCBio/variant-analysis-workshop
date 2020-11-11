@@ -67,6 +67,11 @@ VL062784        W117    W238    W344    W499    W668    W968    W9706   wenhuang
 
 Wow, that's a lot to look at.  What is the information that we have here?
 
+Below is a diagram of the file to make it a bit easier to digest.  We have a
+header, followed by a table of genotypes.
+
+<img src="{{ page.root }}/fig/VCF_diagram.png" alt="Formatting Rules" />
+
 ## The header
 
 We start with a set of lines beginning with `##`.  Although these lines aren't
@@ -125,6 +130,23 @@ For example, here `MAF` contains the minor allele frequency.  You might use
 these fields for filtering markers.
 
 ## Column headers
+
+After the file header, you should see a row that starts with `#CHROM`.  These
+are the column headers for the genotype table.  The first nine columns are
+always the same:
+
+* `CHROM`: Which chromosome the variant is on.
+* `POS`: The position (or starting position) of the variant on the chromosome.
+* `ID`: The name of the variant.
+* `REF`: The reference allele (the nucleotide matching the reference sequence at
+this position).
+* `ALT`: One or more alternative alleles.
+* `QUAL`: Marker quality. Left as missing (`.`) by many programs.
+* `FILTER`: Whether or not the marker passed a filtering step.
+* `INFO`: Any additional statistics from the `INFO` fields.
+* `FORMAT`: Which `FORMAT` fields are used to code the genotypes, and in what
+order.  This is generally the same for every marker in the dataset, but doesn't
+have to be.
 
 > ## Discussion
 >
