@@ -8,6 +8,7 @@ objectives:
 - "Describe the purpose of FORMAT and INFO fields."
 - "Describe what the rows and columns of a VCF represent."
 keypoints:
+- "A VCF is a table with samples in columns and SNPs (or other variants) in rows."
 - "FORMAT fields contain variant-by-sample data pertaining to genotype calls."
 - "INFO fields contain statistics about each variant."
 ---
@@ -148,7 +149,34 @@ this position).
 order.  This is generally the same for every marker in the dataset, but doesn't
 have to be.
 
+After that, there is one column for each sample.  In this case the first sample
+is called `2005-4`.  There are no other custom columns, so any custom
+information goes into `INFO`.
+
+## Variant rows
+
+Now, the rest of the file is one row per variant.  In the first row we see:
+
+* The chromosome is 1.
+* The position is 21000162.
+* The SNP is named 1-20689192 (after a position in an earlier version of the
+  genome).
+* The reference allele is `G` and the alternative allele is `T`.
+* No quality score is recorded, and this SNP passed filtering.
+* We have a lot of statistics in the `INFO` column, separated by semi-colons.
+* The format is `GT:AD:GL`, so that is what we will expect to see for the
+genotype of each sample.
+* Under each sample, we see the genotype, allele depths, and genotype
+likelihoods, separated by colons.  Many of these genotypes were imputed and
+therefore are missing depths and likelihoods.
+
+Once we import this data into R, it will be much more accessible.  In the next
+episode we will cover generally how genomic data and experimental results are
+stored in BioConductor, which will lead into how we can import and manipulate
+a VCF.
+
 > ## Discussion
 >
 > Which FORMAT and INFO fields would you want to use for your analysis, and why?
+> Is there any other information from the VCF that you would use?
 {: .discussion}
