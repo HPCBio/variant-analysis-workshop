@@ -17,6 +17,9 @@ FASTA
 GFF
 :   General Feature Format.  A type of file that lists the genome annotation.  GFF3 and GTF are types of GFF.
 
+GWAS
+:   Genome-wide association study.  Analysis that looks for associations between phenotypes and variants.
+
 Reference genome
 :   A genome sequence and annotation for a particular species.  Often, the reference is based on the genome of one individual.
 
