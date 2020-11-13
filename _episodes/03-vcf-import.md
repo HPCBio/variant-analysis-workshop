@@ -29,8 +29,60 @@ library(VariantAnnotation)
 ~~~
 {: .language-r}
 
+## Making the VCF file easy to access
+
+We have a small VCF for this workshop, but they can be many gigabytes in size.
+So, instead of reading straight from a plain text file, we will compress and
+index the file.  This only needs to be done to the file once, even if you will
+read data from the file many times in later R sessions.
+
+To save time, the file you downloaded was zipped already.  If it wasn't, you
+would zip it this way:
 
 
+~~~
+bg <- bgzip("data/hmp321_agpv4_chr1_subset.vcf")
+~~~
+{: .language-r}
+
+> ## BGZIP format
+>
+> The BGZIP format is an extension of the GZIP format, so any command that
+> would work on `.gz` files (like `zless`) works on `.bgz` files.  The
+> BGZIP format was designed specifically for bioinformatics files to make
+> them easy to index.  See http://www.htslib.org/doc/bgzip.html for more
+> information.
+{: .callout}
+
+Instead we'll input the zipped file name directly.
+
+
+~~~
+bg <- "data/hmp321_agpv4_chr1_subset.vcf.bgz"
+~~~
+{: .language-r}
+
+Now we'll build an index that will make it easy for R to read just particular
+regions of the genome.
+
+~~~
+indexTabix(bg, format = "vcf")
+~~~
+{: .language-r}
+
+~~~
+[1] "data/hmp321_agpv4_chr1_subset.vcf.bgz.tbi"
+~~~
+{: .output}
+
+Now we can make an object that points to the file for quick access, kind of like
+the `FaFile` object we made in Episode 1.
+
+
+~~~
+myvcf <- VcfFile(bg)
+~~~
+{: .language-r}
 
 
 {% include links.md %}
