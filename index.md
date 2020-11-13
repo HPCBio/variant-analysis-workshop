@@ -14,6 +14,9 @@ This workshop was developed by Lindsay Clark at HPCBio, Roy J. Carver
 Biotechnology Center, University of Illinois, Urbana-Champaign, using a
 website template developed by The Carpentries.
 
+To register to attend this workshop December 2-4, 2020, please see our
+[Eventbrite page](https://www.eventbrite.com/e/advanced-r-variant-analysis-fall-2020-registration-129018819763).
+
 For guidelines on how to help improve this lesson,
 please see [the contribution guidelines][contributing].
 
