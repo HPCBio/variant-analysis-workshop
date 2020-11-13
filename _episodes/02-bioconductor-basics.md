@@ -3,7 +3,7 @@
 # Instead, please edit 02-bioconductor-basics.md in _episodes_rmd/
 source: Rmd
 title: "Bioconductor basics"
-teaching: 60
+teaching: 50
 exercises: 15
 questions:
 - "What are the Bioconductor classes for the types of data we would find in a VCF?"

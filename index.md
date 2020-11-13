@@ -8,7 +8,7 @@ permalink: index.html  # Is the only page that doesn't follow the pattern /:path
 
 Attendees will learn how to read, filter, and interrogate variant calls that are in VCF (Variant Call Format) format with Bioconductor packages in R. Analyses may include some or all of the following topics: assessing minor allele frequency, missing data rate, heterozygosity, and/or linkage disequilibrium; working with genome annotations as TxDb objects; discovering what genes are near SNPs of interest; identifying functional consequences of variants.
 
-Before the workshop starts, please follow the [setup](setup.md) instructions.
+**Before the workshop starts, please follow the [setup](setup.md) instructions.**
 
 This workshop was developed by Lindsay Clark at HPCBio, Roy J. Carver
 Biotechnology Center, University of Illinois, Urbana-Champaign, using a

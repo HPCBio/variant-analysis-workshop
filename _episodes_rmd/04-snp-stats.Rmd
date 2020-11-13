@@ -1,0 +1,30 @@
+---
+source: Rmd
+title: "Running statistics on SNP markers"
+teaching: 30
+exercises: 10
+questions:
+- "How can I analyze a SNP dataset in R?"
+objectives:
+- "Calculate allele frequency, missing data rate, heterozygosity, and linkage disequilibrium."
+- "Evaluate population structure using principal coordinates analysis"
+keypoints:
+- "The snpStats package can convert genotypes to numeric format and calculate statistics."
+---
+
+```{r, include=FALSE}
+source("../bin/chunk-options.R")
+knitr_fig_path("04-")
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+library(VariantAnnotation)
+library(snpStats)
+```
+
+
+
+
+
+{% include links.md %}

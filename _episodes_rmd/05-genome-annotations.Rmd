@@ -1,0 +1,33 @@
+---
+source: Rmd
+title: "Working with genome annotations"
+teaching: 30
+exercises: 10
+questions:
+- "What genes are near my SNPs of interest?"
+objectives:
+- "Build search windows, sized based on LD in your population, flanking SNPs of interest."
+- "Identify genes within your search windows."
+- "Determine functional consequences of SNPs."
+keypoints:
+- "Genome annotations can either be stored as GRanges imported with rtracklayer, or as TxDb imported with GenomicFeatures."
+- "Functions that find overlaps between GRanges objects can be used to identify genes near SNPs."
+- "The predictCoding function in VariantAnnotation identified amino acid changes caused by SNPs."
+---
+
+```{r, include=FALSE}
+source("../bin/chunk-options.R")
+knitr_fig_path("05-")
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+library(VariantAnnotation)
+library(GenomicFeatures)
+```
+
+
+
+
+
+{% include links.md %}
