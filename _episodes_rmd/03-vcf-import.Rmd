@@ -245,6 +245,15 @@ head(testlines[testLLD], n = 2)  # lines that should have LLD
 head(testlines[!testLLD], n = 2) # lines that should not have LLD
 ```
 
+> ## grepl
+>
+> If you are confused about what `grepl` does, try:
+>
+> ```{r, eval = FALSE}
+> grepl("a", c("cat", "dog", "banana", "ACGT"))
+> ```
+{: .callout}
+
 When the `LLD` flag is present, we see it after `MAF0`. Now let's build our
 command into a function, and make a similar one for `DUP`.
 
@@ -325,7 +334,109 @@ index now.
 > > ```
 > >
 > > But there are many other possible ways to do it, such as using `ggplot2`.
+> > Note that `ggplot` understands `data.frame`s and `tibble`s but not
+> > `DataFrame`s, so you'll have to convert `info(test)`.
+> >
+> > ```{r}
+> > library(ggplot2)
+> >
+> > info(test) %>% as.data.frame() %>%
+> >   ggplot(mapping =  aes(x = DP)) +
+> >   geom_histogram()
+> > ```
 > {: .solution}
 {: .challenge}
+
+
+## Custom VCF import
+
+Ok, now we have previewed and filtered the VCF, and we would like to actually
+read in data and begin our analysis.  But we still don't want to read the whole
+thing into memory.  We probably want the genotypes in the `GT` field, but don't
+care about the `AD` or `GL` fields.  In the `INFO` table, we definitely don't
+need `LLD` or `DUP` any more since we filtered on them, and in fact maybe the
+only fields that we care about are `DP` and `MAF`.  It's also possible that we
+only want to import certain samples or certain regions.
+
+Let's say that we know we want to omit samples "32" and "98F1".  We'll make a
+vector of sample names to keep.
+
+```{r}
+keep_sam <- all_sam[!all_sam %in% c("32", "98F1")]
+```
+
+We can also just import particular regions.  Since this is a small example
+dataset, I can tell you that it only covers chromosome 1 from 21 to 24 Mb.
+To only import particular regions within that, we'll make a `GRanges`.
+
+```{r readvcf}
+keep_regions <- GRanges(seqnames = "1",
+                        ranges = IRanges(start = c(21.4e6, 22.9e6),
+                                         end = c(22.3e6, 23.8e6)))
+names(keep_regions) <- c("Region_1", "Region_2")
+keep_regions
+```
+
+We can do all of our selection using `ScanVcfParam`.  Take a look at the help
+page for this function.  If we want to keep all fields in a certain category, we
+can leave the respective argument at the default.
+
+Below we'll use:
+
+* `info` to indicate which `INFO` columns to keep
+* `geno` to indicate which `FORMAT` columns to keep
+* `samples` to indicate which samples to keep
+* `which` to indicate genomic regions to keep.
+
+```{r}
+svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+                    samples = keep_sam, which = keep_regions)
+```
+
+> ## Challenge: Ignore QUAL and FILTER
+>
+> The `QUAL` and `FILTER` columns don't contain any useful information in this
+> file, so we don't need them. Modify our `svp` object to omit them.
+>
+> > ## Solution
+> >
+> > We see from the help file that `fixed` can contain `ALT`, `QUAL`, and
+> > `FILTER`.  So, we can just set it to `ALT`.  We can modify our existing
+> > object like so:
+> >
+> > ```{r}
+> > vcfFixed(svp) <- "ALT"
+> > ```
+> >
+> > Or we can just remake the object:
+> >
+> > ```{r}
+> > svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+> >                     samples = keep_sam, which = keep_regions,
+> >                     fixed = "ALT")
+> > ```
+> {: .solution}
+{: .challenge}
+
+Now, let's import our VCF, just keeping the data that we want.
+We'll send all of our parameters to the `param` argument.
+Since we are specifying genomic regions, we also need to make sure
+those chromosome names are present in the `genome` argument.
+
+```{r}
+myvcf3 <- VcfFile("data/hmp321_agpv4_chr1_subset_filtered.vcf.bgz")
+
+mydata <- readVcf(myvcf3, param = svp, genome = seqlevels(keep_regions))
+mydata
+```
+
+One handy thing is that `rowRanges` now has a column called `paramRangeID`
+to indicate which genomic range that SNP corresponds to.
+
+```{r}
+rowRanges(mydata)
+```
+
+In the next episode we'll start some analysis of the SNP genotypes.
 
 {% include links.md %}

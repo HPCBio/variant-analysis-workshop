@@ -329,7 +329,8 @@ info_desc
 > ## Descriptions of the FORMAT fields
 >
 > Print out descriptions of the `FORMAT` fields.  Look at `hdr` again to find
-> a function to do this.
+> a function to do this.  You might also look back at Episode 1 to remind
+> yourself of what the `FORMAT` fields represent.
 >
 > > ## Solution
 > > 
@@ -425,7 +426,7 @@ geno(header(vcf)):
 We could get the same header from above using the `header` function.
 We can also now get information about the first 100 variants.  The `rowRanges`
 function gets us a `GRanges` object indicating the name and position of each
-SNPs, along with the reference and alternative allele.
+SNP, along with the reference and alternative allele.
 
 
 ~~~
@@ -685,6 +686,17 @@ head(testlines[!testLLD], n = 2) # lines that should not have LLD
 ~~~
 {: .output}
 
+> ## grepl
+>
+> If you are confused about what `grepl` does, try:
+>
+> 
+> ~~~
+> grepl("a", c("cat", "dog", "banana", "ACGT"))
+> ~~~
+> {: .language-r}
+{: .callout}
+
 When the `LLD` flag is present, we see it after `MAF0`. Now let's build our
 command into a function, and make a similar one for `DUP`.
 
@@ -817,10 +829,206 @@ index now.
 > > ~~~
 > > {: .language-r}
 > > 
-> > <img src="../fig/rmd-03-unnamed-chunk-22-1.png" title="plot of chunk unnamed-chunk-22" alt="plot of chunk unnamed-chunk-22" width="612" style="display: block; margin: auto;" />
+> > <img src="../fig/rmd-03-unnamed-chunk-23-1.png" title="plot of chunk unnamed-chunk-23" alt="plot of chunk unnamed-chunk-23" width="612" style="display: block; margin: auto;" />
 > >
 > > But there are many other possible ways to do it, such as using `ggplot2`.
+> > Note that `ggplot` understands `data.frame`s and `tibble`s but not
+> > `DataFrame`s, so you'll have to convert `info(test)`.
+> >
+> > 
+> > ~~~
+> > library(ggplot2)
+> > 
+> > info(test) %>% as.data.frame() %>%
+> >   ggplot(mapping =  aes(x = DP)) +
+> >   geom_histogram()
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> > `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+> > ~~~
+> > {: .output}
+> > 
+> > <img src="../fig/rmd-03-unnamed-chunk-24-1.png" title="plot of chunk unnamed-chunk-24" alt="plot of chunk unnamed-chunk-24" width="612" style="display: block; margin: auto;" />
 > {: .solution}
 {: .challenge}
+
+
+## Custom VCF import
+
+Ok, now we have previewed and filtered the VCF, and we would like to actually
+read in data and begin our analysis.  But we still don't want to read the whole
+thing into memory.  We probably want the genotypes in the `GT` field, but don't
+care about the `AD` or `GL` fields.  In the `INFO` table, we definitely don't
+need `LLD` or `DUP` any more since we filtered on them, and in fact maybe the
+only fields that we care about are `DP` and `MAF`.  It's also possible that we
+only want to import certain samples or certain regions.
+
+Let's say that we know we want to omit samples "32" and "98F1".  We'll make a
+vector of sample names to keep.
+
+
+~~~
+keep_sam <- all_sam[!all_sam %in% c("32", "98F1")]
+~~~
+{: .language-r}
+
+We can also just import particular regions.  Since this is a small example
+dataset, I can tell you that it only covers chromosome 1 from 21 to 24 Mb.
+To only import particular regions within that, we'll make a `GRanges`.
+
+
+~~~
+keep_regions <- GRanges(seqnames = "1",
+                        ranges = IRanges(start = c(21.4e6, 22.9e6),
+                                         end = c(22.3e6, 23.8e6)))
+names(keep_regions) <- c("Region_1", "Region_2")
+keep_regions
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 2 ranges and 0 metadata columns:
+           seqnames            ranges strand
+              <Rle>         <IRanges>  <Rle>
+  Region_1        1 21400000-22300000      *
+  Region_2        1 22900000-23800000      *
+  -------
+  seqinfo: 1 sequence from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+We can do all of our selection using `ScanVcfParam`.  Take a look at the help
+page for this function.  If we want to keep all fields in a certain category, we
+can leave the respective argument at the default.
+
+Below we'll use:
+
+* `info` to indicate which `INFO` columns to keep
+* `geno` to indicate which `FORMAT` columns to keep
+* `samples` to indicate which samples to keep
+* `which` to indicate genomic regions to keep.
+
+
+~~~
+svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+                    samples = keep_sam, which = keep_regions)
+~~~
+{: .language-r}
+
+> ## Challenge: Ignore QUAL and FILTER
+>
+> The `QUAL` and `FILTER` columns don't contain any useful information in this
+> file, so we don't need them. Modify our `svp` object to omit them.
+>
+> > ## Solution
+> >
+> > We see from the help file that `fixed` can contain `ALT`, `QUAL`, and
+> > `FILTER`.  So, we can just set it to `ALT`.  We can modify our existing
+> > object like so:
+> >
+> > 
+> > ~~~
+> > vcfFixed(svp) <- "ALT"
+> > ~~~
+> > {: .language-r}
+> >
+> > Or we can just remake the object:
+> >
+> > 
+> > ~~~
+> > svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+> >                     samples = keep_sam, which = keep_regions,
+> >                     fixed = "ALT")
+> > ~~~
+> > {: .language-r}
+> {: .solution}
+{: .challenge}
+
+Now, let's import our VCF, just keeping the data that we want.
+We'll send all of our parameters to the `param` argument.
+Since we are specifying genomic regions, we also need to make sure
+those chromosome names are present in the `genome` argument.
+
+
+~~~
+myvcf3 <- VcfFile("data/hmp321_agpv4_chr1_subset_filtered.vcf.bgz")
+
+mydata <- readVcf(myvcf3, param = svp, genome = seqlevels(keep_regions))
+mydata
+~~~
+{: .language-r}
+
+
+
+~~~
+class: CollapsedVCF 
+dim: 24528 198 
+rowRanges(vcf):
+  GRanges with 3 metadata columns: paramRangeID, REF, ALT
+info(vcf):
+  DataFrame with 2 columns: DP, MAF
+info(header(vcf)):
+       Number Type    Description           
+   DP  1      Integer Total Depth           
+   MAF 1      Float   Minor allele frequency
+geno(vcf):
+  List of length 1: GT
+geno(header(vcf)):
+      Number Type   Description
+   GT 1      String Genotype   
+~~~
+{: .output}
+
+One handy thing is that `rowRanges` now has a column called `paramRangeID`
+to indicate which genomic range that SNP corresponds to.
+
+
+~~~
+rowRanges(mydata)
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 24528 ranges and 3 metadata columns:
+             seqnames    ranges strand | paramRangeID            REF
+                <Rle> <IRanges>  <Rle> |     <factor> <DNAStringSet>
+  1-21094080        1  21400101      * |     Region_1              A
+  1-21094095        1  21400116      * |     Region_1              C
+  1-21094140        1  21400161      * |     Region_1              A
+  1-21094172        1  21400193      * |     Region_1              G
+  1-21094216        1  21400237      * |     Region_1              C
+         ...      ...       ...    ... .          ...            ...
+  1-23395014        1  23784652      * |     Region_2              C
+  1-23395152        1  23784790      * |     Region_2              C
+  1-23395224        1  23784862      * |     Region_2              A
+  1-23395794        1  23785432      * |     Region_2              G
+  1-23395848        1  23785486      * |     Region_2              C
+                         ALT
+             <CharacterList>
+  1-21094080               G
+  1-21094095               G
+  1-21094140               G
+  1-21094172               T
+  1-21094216               T
+         ...             ...
+  1-23395014               T
+  1-23395152               T
+  1-23395224               G
+  1-23395794               A
+  1-23395848               T
+  -------
+  seqinfo: 1 sequence from 1 genome; no seqlengths
+~~~
+{: .output}
+
+In the next episode we'll start some analysis of the SNP genotypes.
 
 {% include links.md %}
