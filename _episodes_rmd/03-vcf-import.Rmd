@@ -26,6 +26,7 @@ knitr_fig_path("03-")
 library(GenomicRanges)
 library(Rsamtools)
 library(VariantAnnotation)
+library(magrittr)
 ```
 
 ## Making the VCF file easy to access
@@ -71,11 +72,260 @@ indexTabix(bg, format = "vcf")
 {: .output}
 
 Now we can make an object that points to the file for quick access, kind of like
-the `FaFile` object we made in Episode 1.
+the `FaFile` object we made in Episode 2.
 
 ```{r}
 myvcf <- VcfFile(bg)
 ```
 
+## Scanning the header
+
+Even a VCF that is small when compressed can take up a lot of memory when
+imported into R.  So, we'll want to think carefully about how we import it.
+One helpful thing you can do is just read the header, to learn more about
+what data the VCF contains.
+
+```{r}
+hdr <- scanVcfHeader(myvcf)
+hdr
+```
+
+Let's go through the different components that were listed.
+
+With `samples`, we can get a character vector of all sample names in the file.
+This allows us to confirm that the file contains the samples that we expect it
+to.  Later we can also decide to only import genotypes from certain samples.
+
+```{r}
+all_sam <- samples(hdr)
+all_sam
+```
+
+We can see the file date and other general information from the top of the file.
+
+```{r}
+meta(hdr)
+
+for(i in names(meta(hdr))){
+  meta(hdr)[[i]] %>% show()
+}
+```
+
+For `contig` we only see `"1"` because this file only contains variants on
+chromosome 1.
+
+We can print out descriptions of all the `INFO` fields.
+
+```{r}
+info(hdr)
+info_desc <- info(hdr)$Description
+names(info_desc) <- rownames(info(hdr))
+info_desc
+```
+
+> ## Descriptions of the FORMAT fields
+>
+> Print out descriptions of the `FORMAT` fields.  Look at `hdr` again to find
+> a function to do this.  You might also look back at Episode 1 to remind
+> yourself of what the `FORMAT` fields represent.
+>
+> > ## Solution
+> > ```{r}
+> > geno(hdr)
+> > geno(hdr)$Description
+> > ```
+> {: .solution}
+{: .challenge}
+
+## Importing the first chunk of the file
+
+How are the actual data formatted?  We don't want to read the whole file,
+but here is how we can read just the first 100 entries.
+
+```{r}
+myvcf2 <- VcfFile(bg, yieldSize = 100)
+
+test <- readVcf(myvcf2)
+
+test
+```
+
+We could get the same header from above using the `header` function.
+We can also now get information about the first 100 variants.  The `rowRanges`
+function gets us a `GRanges` object indicating the name and position of each
+SNP, along with the reference and alternative allele.
+
+```{r}
+rowRanges(test)
+```
+
+The `info` function gets us a data frame with all of the `INFO` variables.
+
+```{r}
+info(test)
+```
+
+The `geno` function gets us data associated with each genotype.  We use the `$`
+accessor to get each field.
+
+```{r}
+geno(test)$GT[1:10,1:5]
+```
+
+> ## Reading the file in chunks
+>
+> With the `yieldSize` argument, we could actually call `readVcf` repeatedly
+> to go through the whole file one chunk at a time.  In that case we would
+> call `open(myvcf2)` before calling `readVcf`, then call `close(myvcf2)`
+> once we were done reading the file.
+{: .callout}
+
+## Filtering the file
+
+Before we import, we can filter the file to eliminate variants that we know we
+aren't interested in.  This is optional of course, but will save us some memory
+and computational time when we import the data later.  It will also give us a
+VCF that we could import into other software.
+
+Let's filter on a few of the INFO fields.  According to
+[documentation of this dataset](https://www.panzea.org/genotypes), the `LLD`
+flag indicates good quality markers.  The `DUP` flag indicates a high proportion
+of heterozygotes (for an inbred crop like maize) and so we should probably throw
+away markers with that flag.  Finally, let's set a minimum minor allele frequency
+(`MAF`) at 0.01.  We'll look at the formatting of these fields.
+
+```{r}
+info(hdr)[c("LLD", "DUP", "MAF"),]
+```
+
+`LLD` and `DUP` are "flags", which means that the abbreviation will either be
+present or absent in the `INFO` column.  `MAF` is a "float" (which just means
+a number that is not necessarily an integer) with one value per marker.
+
+For each rule, we need to create a function that will return `TRUE` if we want
+to keep the variant and `FALSE` if we want to discard it.  For our `MAF` filter,
+we'll make a function that can work on an imported VCF.
+
+> ## Creating functions
+>
+> See the [software carpentry tutorial](http://swcarpentry.github.io/r-novice-gapminder/10-functions/index.html)
+> on how to create functions in R.
+{: .callout}
+
+```{r}
+maf01 <- function(vcf){
+  info(vcf)$MAF >= 0.01
+}
+```
+
+We can test it out on the chunk of the VCF we imported above.
+
+```{r}
+maf01(test) %>% head()
+```
+
+When we can, it's more efficient for filtering to test the plain text of the
+file than to import it into R.  Because `LLD` and `DUP` are "flags", those
+abbreviations will either be in the `INFO` field or not, which translates
+to `TRUE` and `FALSE` in our `info(test)` data frame.  We can use the `grepl`
+function to search for those strings in the unprocessed file.  Let's use
+`readLines` to import some of the file for testing.
+
+```{r}
+testlines <- readLines(bg, n = 150)
+testlines <- testlines[!startsWith(testlines, "#")] # eliminate headers
+```
+
+Now we'll test using `grepl`.  For space I am just looking at two lines, but
+in real life I would probably look at more.
+
+```{r}
+testLLD <- grepl("LLD", testlines)
+head(testlines[testLLD], n = 2)  # lines that should have LLD
+head(testlines[!testLLD], n = 2) # lines that should not have LLD
+```
+
+When the `LLD` flag is present, we see it after `MAF0`. Now let's build our
+command into a function, and make a similar one for `DUP`.
+
+```{r}
+LLD_yes <- function(lines){
+  grepl("LLD", lines)
+}
+
+DUP_no <- function(lines){
+  !grepl("DUP", lines)
+}
+
+head(LLD_yes(testlines))
+head(info(test)$LLD)
+
+head(DUP_no(testlines))
+head(info(test)$DUP)
+```
+
+These tests on the first six variants show that the functions are behaving as
+expected.
+
+Now that we have build these three functions, we can use them for filtering the
+VCF.  Functions that act on plain text go into the `prefilters` argument, and
+functions that act on imported data go into the `filters` argument.  We'll set
+`index` to `TRUE` so that the output will already be compressed and indexed for
+our use.
+
+```{r filtervcf, eval = FALSE}
+filterVcf(myvcf, genome = "Zm-B73-4.0",
+          destination = "data/hmp321_agpv4_chr1_subset_filtered.vcf",
+          prefilters = FilterRules(list(LLD_yes, DUP_no)),
+          filters = FilterRules(list(maf01)),
+          index = TRUE)
+```
+
+~~~
+starting prefilter
+prefiltering 120304 records
+prefiltered to C:\Users\lvclark\AppData\Local\Temp\RtmpYJMA8u\file28341ebc6331
+prefilter compressing and indexing C:\Users\lvclark\AppData\Local\Temp\RtmpYJMA8u\file28341ebc6331
+starting filter
+filtering 41500 records
+completed filtering
+compressing and indexing data/hmp321_agpv4_chr1_subset_filtered.vcf
+~~~
+{: .output}
+
+If you look at the `data` directory, you should see the new file and its
+index now.
+
+> ## Challenge
+>
+> Make a filtering function that would only retain markers where the total
+> read depth was over 2000.
+>
+> > ## Solution
+> >
+> > ```{r}
+> > DP2000 <- function(vcf){
+> >   info(vcf)$DP > 2000
+> > }
+> > ```
+> {: .solution}
+{: .challenge}
+
+> ## Bonus challenge
+>
+> Use your knowledge of R to plot the distribution of total read depth in the
+> first 100 markers (the `test` object).
+>
+> > ## Solution
+> >
+> > One quick solution is:
+> >
+> > ```{r}
+> > hist(info(test)$DP)
+> > ```
+> >
+> > But there are many other possible ways to do it, such as using `ggplot2`.
+> {: .solution}
+{: .challenge}
 
 {% include links.md %}

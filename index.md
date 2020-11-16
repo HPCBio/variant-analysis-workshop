@@ -32,6 +32,7 @@ please see [the contribution guidelines][contributing].
 >   - Importing data
 >   - Using functions
 >   - Indexing and subsetting data
+>   - Making simple functions
 {: .prereq}
 
 
