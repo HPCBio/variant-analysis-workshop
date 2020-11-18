@@ -6,7 +6,7 @@ permalink: index.html  # Is the only page that doesn't follow the pattern /:path
 
 {% include gh_variables.html %}
 
-Attendees will learn how to read, filter, and interrogate variant calls that are in VCF (Variant Call Format) format with Bioconductor packages in R. Analyses may include some or all of the following topics: assessing minor allele frequency, missing data rate, heterozygosity, and/or linkage disequilibrium; working with genome annotations as TxDb objects; discovering what genes are near SNPs of interest; identifying functional consequences of variants.
+Attendees will learn how to read, filter, and interrogate variant calls that are in VCF (Variant Call Format) format with Bioconductor packages in R. Analyses may include some or all of the following topics: assessing minor allele frequency, missing data rate, heterozygosity, and/or linkage disequilibrium; working with genome annotations as TxDb objects; discovering what genes are near SNPs of interest; identifying functional consequences of variants.  Although we will not perform genome-wide association studies (GWAS) in this workshop, we will cover many tasks that one might perform before or after GWAS.
 
 **Before the workshop starts, please follow the [setup](setup.md) instructions.**
 
