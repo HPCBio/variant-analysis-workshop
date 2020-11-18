@@ -29,6 +29,9 @@ GFF
 GWAS
 :   Genome-wide association study.  Analysis that looks for associations between phenotypes and variants.
 
+Linkage disequilibrium
+:   The extent to which a genotype at one locus can predict the genotype at another locus.  Caused by physical linkage as well as population structure.
+
 Minor allele frequency
 :   The frequency of the less common allele.  Ranges from 0 to 0.5 by definition.
 

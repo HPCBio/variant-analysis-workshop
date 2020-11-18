@@ -9,6 +9,13 @@ title: "Instructor Notes"
 My goal is to teach episodes 1 and 2 and get partway through episode 3
 (reading VCFs) on the first two-hour day.
 
+In episode 1, `DNAStringSets` are not super important for the rest of the
+lesson, so cover those quickly.
+
+The code from `snpStats` in episode 4 for getting linkage disequilibrium
+vs. physical distance is hacky enough that I think it is better to just give
+them the code and demonstrate it rather than do live coding.
+
 ## Technical tips and tricks
 
 ## Common problems

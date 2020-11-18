@@ -42,10 +42,10 @@ BiocManager::install(c("VariantAnnotation", "snpStats", "GenomicFeatures",
 
 From CRAN, we'll install `magrittr`, which will let us use the `%>%` (pipe)
 symbol to make some code more readable, as well as `ggplot2` for making some
-graphs.
+graphs, and `dplyr` for some data frame manipulation.
 
 ``` r
-install.packages(c("magrittr", "ggplot2"))
+install.packages(c("magrittr", "ggplot2", "dplyr"))
 ```
 
 To make sure it worked, run the code
@@ -54,7 +54,7 @@ To make sure it worked, run the code
 library(VariantAnnotation)
 library(snpStats)
 library(GenomicFeatures)
-library(magrittr)
+library(dplyr)
 library(ggplot2)
 ```
 
