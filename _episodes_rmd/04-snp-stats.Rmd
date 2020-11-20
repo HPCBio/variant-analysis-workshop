@@ -162,6 +162,26 @@ mat3 <- mat2[, !highhet2]
 mat3
 ```
 
+> ## Challenge: P.BB vs. RAF
+>
+> Using our `marker_stats` data frame and `ggplot`, make a graph of `P.BB` vs.
+> `RAF`.  What is your interpretation of this plot?  For an extra challenge,
+> color the points by `Ho.He` or by `highhet2`.
+>
+> > ## Solution
+> >
+> > ```{r}
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB)) + geom_point()
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB, color = Ho.He)) + geom_point()
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB, color = highhet2)) + geom_point()
+> > ```
+> >
+> > Because maize is highly inbred, the frequency of the ALT allele is almost
+> > identical the the frequency of homozygotes for the ALT allele.  Markers that
+> > differ from that pattern tend to be ones that we identified as being too heterozygous.
+> {: .solution}
+{: .challenge}
+
 ## Linkage Disequilibrium
 
 If we know how much linkage disequilibrium is in our dataset, we know how far
@@ -170,7 +190,8 @@ here, it can also be helpful if you want to prune redundant markers.  We'll
 calculate it with the `ld` function and visualize the first 500 markers.
 
 ```{r}
-myLD <- ld(mat3, depth = 100, stats = "R.squared", symmetric = FALSE)
+mydepth <- 100 # how many adjacent markers to look at
+myLD <- ld(mat3, depth = mydepth, stats = "R.squared", symmetric = FALSE)
 ```
 
 ```{r}
@@ -186,9 +207,9 @@ in `vignette("ld-vignette", package = "snpStats")`.
 ```{r}
 pos <- start(rowRanges(mydata)[colnames(mat3)])
 nSNP <- length(pos)
-diags <- vector("list", 100)
-for (i in 1:100) diags[[i]] <- pos[(i+1):nSNP] - pos[1:(nSNP-i)]
-physical_distance <- bandSparse(nSNP, k=1:100, diagonals=diags)
+diags <- vector("list", mydepth)
+for (i in 1:mydepth) diags[[i]] <- pos[(i+1):nSNP] - pos[1:(nSNP-i)]
+physical_distance <- bandSparse(nSNP, k=1:mydepth, diagonals=diags)
 ```
 
 Now we'll plot LD vs. physical distance.
@@ -244,8 +265,8 @@ plotPCs <- function(x, y, eigenvect = my_pca$vectors,
                     pct_var = percent_variation){
   ggplot(mapping = aes(x = eigenvect[,x], y = eigenvect[,y])) +
     geom_point() +
-    labs(x = paste0("PC", x, " (", pct_var[x], ")%"),
-         y = paste0("PC", y, " (", pct_var[y], ")%"))
+    labs(x = paste0("PC", x, " (", pct_var[x], "%)"),
+         y = paste0("PC", y, " (", pct_var[y], "%)"))
 }
 
 plotPCs(1, 2)
@@ -269,5 +290,17 @@ pca_tab %>% dplyr::filter(PC1 < -0.05) %>%
 write.csv(pca_tab, file = "maize_pca.csv", row.names = FALSE)
 ```
 
+> ## Challenge: Find those accessions
+>
+> PCs 3 and 4 separate out a tight cluster of individuals, in the upper left
+> of the plot.  What are the identities of these?
+>
+> > ## Solution
+> > ```{r}
+> > pca_tab %>% dplyr::filter(PC3 < -0.17) %>%
+> >   dplyr::select(Sample, PC1, PC2, PC3, PC4)
+> > ```
+> {: .solution}
+{: .challenge}
 
 {% include links.md %}

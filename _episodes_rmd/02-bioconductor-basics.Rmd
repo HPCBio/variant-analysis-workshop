@@ -24,7 +24,7 @@ knitr_fig_path("02-")
 ```
 
 Bioconductor packages are all designed to work together.  This is why, when you
-tried installing four packages, it probably installed dozens of dependencies.
+tried installing five packages, it probably installed dozens of dependencies.
 The benefit is that the same functions are useful across many different
 bioinformatics workflows.  To explore those building blocks, we'll load a few of
 those dependencies.

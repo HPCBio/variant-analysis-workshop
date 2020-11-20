@@ -37,7 +37,7 @@ Additionally, you should run code to install packages that we will need.
 
 ``` r
 BiocManager::install(c("VariantAnnotation", "snpStats", "GenomicFeatures",
-                       "airway"))
+                       "airway", "scater"))
 ```
 
 From CRAN, we'll install `magrittr`, which will let us use the `%>%` (pipe)
@@ -54,6 +54,7 @@ To make sure it worked, run the code
 library(VariantAnnotation)
 library(snpStats)
 library(GenomicFeatures)
+library(scater)
 library(dplyr)
 library(ggplot2)
 ```

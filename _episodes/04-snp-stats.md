@@ -361,6 +361,42 @@ Col names:  1-21094080 ... 1-23395224
 ~~~
 {: .output}
 
+> ## Challenge: P.BB vs. RAF
+>
+> Using our `marker_stats` data frame and `ggplot`, make a graph of `P.BB` vs.
+> `RAF`.  What is your interpretation of this plot?  For an extra challenge,
+> color the points by `Ho.He` or by `highhet2`.
+>
+> > ## Solution
+> >
+> > 
+> > ~~~
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB)) + geom_point()
+> > ~~~
+> > {: .language-r}
+> > 
+> > <img src="../fig/rmd-04-unnamed-chunk-14-1.png" title="plot of chunk unnamed-chunk-14" alt="plot of chunk unnamed-chunk-14" width="612" style="display: block; margin: auto;" />
+> > 
+> > ~~~
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB, color = Ho.He)) + geom_point()
+> > ~~~
+> > {: .language-r}
+> > 
+> > <img src="../fig/rmd-04-unnamed-chunk-14-2.png" title="plot of chunk unnamed-chunk-14" alt="plot of chunk unnamed-chunk-14" width="612" style="display: block; margin: auto;" />
+> > 
+> > ~~~
+> > ggplot(marker_stats, aes(x = RAF, y = P.BB, color = highhet2)) + geom_point()
+> > ~~~
+> > {: .language-r}
+> > 
+> > <img src="../fig/rmd-04-unnamed-chunk-14-3.png" title="plot of chunk unnamed-chunk-14" alt="plot of chunk unnamed-chunk-14" width="612" style="display: block; margin: auto;" />
+> >
+> > Because maize is highly inbred, the frequency of the ALT allele is almost
+> > identical the the frequency of homozygotes for the ALT allele.  Markers that
+> > differ from that pattern tend to be ones that we identified as being too heterozygous.
+> {: .solution}
+{: .challenge}
+
 ## Linkage Disequilibrium
 
 If we know how much linkage disequilibrium is in our dataset, we know how far
@@ -370,7 +406,8 @@ calculate it with the `ld` function and visualize the first 500 markers.
 
 
 ~~~
-myLD <- ld(mat3, depth = 100, stats = "R.squared", symmetric = FALSE)
+mydepth <- 100 # how many adjacent markers to look at
+myLD <- ld(mat3, depth = mydepth, stats = "R.squared", symmetric = FALSE)
 ~~~
 {: .language-r}
 
@@ -380,7 +417,7 @@ image(myLD[1:500, 1:500], lwd = 0)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-15-1.png" title="plot of chunk unnamed-chunk-15" alt="plot of chunk unnamed-chunk-15" width="612" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-16-1.png" title="plot of chunk unnamed-chunk-16" alt="plot of chunk unnamed-chunk-16" width="612" style="display: block; margin: auto;" />
 
 There are some loose blocks of LD, but also a lot of adjacent markers that are
 not in LD with each other.
@@ -392,9 +429,9 @@ in `vignette("ld-vignette", package = "snpStats")`.
 ~~~
 pos <- start(rowRanges(mydata)[colnames(mat3)])
 nSNP <- length(pos)
-diags <- vector("list", 100)
-for (i in 1:100) diags[[i]] <- pos[(i+1):nSNP] - pos[1:(nSNP-i)]
-physical_distance <- bandSparse(nSNP, k=1:100, diagonals=diags)
+diags <- vector("list", mydepth)
+for (i in 1:mydepth) diags[[i]] <- pos[(i+1):nSNP] - pos[1:(nSNP-i)]
+physical_distance <- bandSparse(nSNP, k=1:mydepth, diagonals=diags)
 ~~~
 {: .language-r}
 
@@ -426,14 +463,14 @@ ggplot(mapping = aes(x = physical_distance_vals[random_subset],
 
 
 ~~~
-Warning: Removed 24 rows containing non-finite values (stat_smooth).
+Warning: Removed 29 rows containing non-finite values (stat_smooth).
 ~~~
 {: .warning}
 
 
 
 ~~~
-Warning: Removed 24 rows containing missing values (geom_point).
+Warning: Removed 29 rows containing missing values (geom_point).
 ~~~
 {: .warning}
 
@@ -474,7 +511,7 @@ plot(percent_variation)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-19-1.png" title="plot of chunk unnamed-chunk-19" alt="plot of chunk unnamed-chunk-19" width="612" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-20-1.png" title="plot of chunk unnamed-chunk-20" alt="plot of chunk unnamed-chunk-20" width="612" style="display: block; margin: auto;" />
 
 The cutoff is arbitrary, but probably at least the first six PCs are worth
 investigating.  We'll make a function to plot PCs by number.
@@ -485,29 +522,29 @@ plotPCs <- function(x, y, eigenvect = my_pca$vectors,
                     pct_var = percent_variation){
   ggplot(mapping = aes(x = eigenvect[,x], y = eigenvect[,y])) +
     geom_point() +
-    labs(x = paste0("PC", x, " (", pct_var[x], ")%"),
-         y = paste0("PC", y, " (", pct_var[y], ")%"))
+    labs(x = paste0("PC", x, " (", pct_var[x], "%)"),
+         y = paste0("PC", y, " (", pct_var[y], "%)"))
 }
 
 plotPCs(1, 2)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-20-1.png" title="plot of chunk unnamed-chunk-20" alt="plot of chunk unnamed-chunk-20" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-21-1.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
 
 ~~~
 plotPCs(3, 4)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-20-2.png" title="plot of chunk unnamed-chunk-20" alt="plot of chunk unnamed-chunk-20" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-21-2.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
 
 ~~~
 plotPCs(5, 6)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-20-3.png" title="plot of chunk unnamed-chunk-20" alt="plot of chunk unnamed-chunk-20" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-21-3.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
 
 Nothing here is too concerning.  We might want to export the PCA
 values and see what individuals get separated out on which axes.
@@ -570,5 +607,33 @@ write.csv(pca_tab, file = "maize_pca.csv", row.names = FALSE)
 ~~~
 {: .language-r}
 
+> ## Challenge: Find those accessions
+>
+> PCs 3 and 4 separate out a tight cluster of individuals, in the upper left
+> of the plot.  What are the identities of these?
+>
+> > ## Solution
+> > 
+> > ~~~
+> > pca_tab %>% dplyr::filter(PC3 < -0.17) %>%
+> >   dplyr::select(Sample, PC1, PC2, PC3, PC4)
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> >               Sample        PC1         PC2        PC3       PC4
+> > 1            CAUMo17 0.06846645 -0.05034345 -0.2097394 0.1410231
+> > 2              LH128 0.06781703 -0.05170517 -0.2029908 0.1412591
+> > 3               LH51 0.06746680 -0.04877299 -0.2071386 0.1387211
+> > 4               LH60 0.06793352 -0.05081062 -0.2060974 0.1407863
+> > 5               SG17 0.06832035 -0.05228311 -0.2027568 0.1415698
+> > 6 ZEAxppRCODIAAPEI-9 0.06872508 -0.05148261 -0.2081216 0.1423601
+> > 7     282set_CI187-2 0.06828446 -0.05171065 -0.2046271 0.1430273
+> > ~~~
+> > {: .output}
+> {: .solution}
+{: .challenge}
 
 {% include links.md %}

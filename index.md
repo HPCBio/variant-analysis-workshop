@@ -33,6 +33,7 @@ please see [the contribution guidelines][contributing].
 >   - Using functions
 >   - Indexing and subsetting data
 >   - Making simple functions
+>   - Scatter plots with ggplot
 {: .prereq}
 
 
