@@ -979,7 +979,8 @@ pc$TXNAME <- my_txnames$TXNAME
 > > ## Solution
 > >
 > > This may vary based on subjective opinions of what information is important.
-> > Note the use of `unlist` for `PROTEINLOC`.
+> > Note the use of `unlist` for `PROTEINLOC`, and the use of `names`,
+> > `seqnames`, and `start` to get `GRanges`-specific information.
 > >
 > > 
 > > ~~~

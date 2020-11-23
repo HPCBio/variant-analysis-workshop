@@ -438,6 +438,8 @@ physical_distance <- bandSparse(nSNP, k=1:mydepth, diagonals=diags)
 Now we'll plot LD vs. physical distance.
 
 
+
+
 ~~~
 physical_distance_vals <- physical_distance@x
 LD_vals <- myLD@x
@@ -463,14 +465,14 @@ ggplot(mapping = aes(x = physical_distance_vals[random_subset],
 
 
 ~~~
-Warning: Removed 29 rows containing non-finite values (stat_smooth).
+Warning: Removed 25 rows containing non-finite values (stat_smooth).
 ~~~
 {: .warning}
 
 
 
 ~~~
-Warning: Removed 29 rows containing missing values (geom_point).
+Warning: Removed 25 rows containing missing values (geom_point).
 ~~~
 {: .warning}
 
@@ -511,7 +513,7 @@ plot(percent_variation)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-20-1.png" title="plot of chunk unnamed-chunk-20" alt="plot of chunk unnamed-chunk-20" width="612" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-21-1.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="612" style="display: block; margin: auto;" />
 
 The cutoff is arbitrary, but probably at least the first six PCs are worth
 investigating.  We'll make a function to plot PCs by number.
@@ -530,21 +532,21 @@ plotPCs(1, 2)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-21-1.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-22-1.png" title="plot of chunk unnamed-chunk-22" alt="plot of chunk unnamed-chunk-22" width="396" style="display: block; margin: auto;" />
 
 ~~~
 plotPCs(3, 4)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-21-2.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-22-2.png" title="plot of chunk unnamed-chunk-22" alt="plot of chunk unnamed-chunk-22" width="396" style="display: block; margin: auto;" />
 
 ~~~
 plotPCs(5, 6)
 ~~~
 {: .language-r}
 
-<img src="../fig/rmd-04-unnamed-chunk-21-3.png" title="plot of chunk unnamed-chunk-21" alt="plot of chunk unnamed-chunk-21" width="396" style="display: block; margin: auto;" />
+<img src="../fig/rmd-04-unnamed-chunk-22-3.png" title="plot of chunk unnamed-chunk-22" alt="plot of chunk unnamed-chunk-22" width="396" style="display: block; margin: auto;" />
 
 Nothing here is too concerning.  We might want to export the PCA
 values and see what individuals get separated out on which axes.

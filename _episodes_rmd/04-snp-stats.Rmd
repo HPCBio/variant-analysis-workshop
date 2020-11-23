@@ -214,6 +214,10 @@ physical_distance <- bandSparse(nSNP, k=1:mydepth, diagonals=diags)
 
 Now we'll plot LD vs. physical distance.
 
+```{r echo = FALSE}
+set.seed(1123) # for report reproducibility
+```
+
 ```{r plotld}
 physical_distance_vals <- physical_distance@x
 LD_vals <- myLD@x
