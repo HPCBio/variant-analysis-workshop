@@ -76,7 +76,18 @@ find them.
 
 ## Data
 
-We will work with some public data from maize.  Download the following two files
+We will work with some public data from maize.  There are three files that you
+need to download and save to the `data` folder in your project directory.
+
+### For the December 2020 workshop
+
+In the [Box folder](https://uofi.box.com/s/3t9e9uq7bf2eqto01uy9my66igj6v8qx)
+for this workshop, download the three files in the `data`
+folder.  See below for the origins of these files.
+
+### Otherwise
+
+Download the following two files
 to your computer and unzip them (using `gunzip` on Linux or Mac, or
 [7-Zip](https://www.7-zip.org/) on Windows):
 
@@ -90,9 +101,6 @@ that we'll be working with.  It is derived from a
 [panel of 1210 maize lines](http://cbsusrv04.tc.cornell.edu/users/panzea/download.aspx?filegroupid=34)
 ([Bukowski et al., 2018](https://doi.org/10.1093/gigascience/gix134])).
 
-Put all three of these files in the `data` folder that you created in your
-project in the last section.
-
 ## R Code
 
 You will learn the most if you follow along by typing the code yourself.
@@ -101,6 +109,14 @@ time, and probably learn something new about R in the process.  However, I also
 don't want anyone falling 15 minutes behind while tracking down one misplaced
 parenthesis.  Therefore, I recommend downloading the RMarkdown files, which you
 can use to quickly get caught up.
+
+### For the December 2020 workshop
+
+Download the one `.md` and four `.Rmd` files from the "Lessons_and_code" folder
+on [Box](https://uofi.box.com/s/3t9e9uq7bf2eqto01uy9my66igj6v8qx).  Note that
+exercise solutions have been deleted from these files.
+
+### Otherwise
 
 Go to the [_episodes_rmd](https://github.com/HPCBio/variant-analysis-workshop/tree/gh-pages/_episodes_rmd)
 folder on GitHub.  From there, you can click on an individual episode and click
