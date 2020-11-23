@@ -12,7 +12,7 @@ objectives:
 keypoints:
 - "Genome annotations can either be stored as GRanges imported with rtracklayer, or as TxDb imported with GenomicFeatures."
 - "Functions that find overlaps between GRanges objects can be used to identify genes near SNPs."
-- "The predictCoding function in VariantAnnotation identified amino acid changes caused by SNPs."
+- "The predictCoding function in VariantAnnotation identifies amino acid changes caused by SNPs."
 ---
 
 ```{r, include=FALSE}
@@ -26,8 +26,265 @@ library(VariantAnnotation)
 library(GenomicFeatures)
 ```
 
+Here's code to reload the dataset:
+
+```{r}
+myvcf3 <- VcfFile("data/hmp321_agpv4_chr1_subset_filtered.vcf.bgz")
+hdr <- scanVcfHeader(myvcf3)
+all_sam <- samples(hdr)
+keep_sam <- all_sam[!all_sam %in% c("32", "98F1")]
+keep_regions <- GRanges(seqnames = "1",
+                        ranges = IRanges(start = c(21.4e6, 22.9e6),
+                                         end = c(22.3e6, 23.8e6)))
+names(keep_regions) <- c("Region_1", "Region_2")
+svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+                    samples = keep_sam, which = keep_regions,
+                    fixed = "ALT")
+mydata <- readVcf(myvcf3, param = svp, genome = seqlevels(keep_regions))
+```
+
+Let's say that after you explored and filtered your dataset, you exported your
+SNP data to a GWAS software and identified some SNPs that were significantly
+associated with your trait of interest.  How can you find candidate genes?
+And do any of the variants seem to have functional consequences?  Rather than
+spending an entire week with a genome browser, let's automate these tasks.
+
+## What genes are near my SNP?
+
+In an earlier episode, we loaded the genome annotation from a GFF file.
+
+```{r}
+gtf0 <- rtracklayer::import("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3")
+gtf1 <- gtf0[gtf0$type == "gene"]
+gtf1[,c("gene_id", "description")]
+```
+
+Let's say we performed GWAS and have a spreadsheet of our top hits.  If you
+haven't already, download the example spreadsheet:
+
+```{r, eval = FALSE}
+download.file("https://raw.githubusercontent.com/HPCBio/variant-analysis-workshop/gh-pages/_episodes_rmd/data/sig_hits.csv",
+              destfile = "data/sig_hits.csv")
+```
+
+Now import that data into R.
+
+```{r}
+sig_hits <- read.csv("data/sig_hits.csv", stringsAsFactors = FALSE)
+head(sig_hits)
+```
+
+To represent the location of these SNPs, we'll make a `GRanges` object.
+
+```{r}
+sig_hits_gr <- GRanges(seqnames = as.character(sig_hits$Chrom),
+                       ranges = IRanges(start = sig_hits$Pos,
+                                        end = sig_hits$Pos),
+                       Name = sig_hits$SNP,
+                       log10P = sig_hits$log10P)
+sig_hits_gr
+```
+
+Based on our LD estimates in the last episode, we'll want to search within
+5 kb of each SNP for candidate genes.  We can make another `GRanges` object
+to indicate these search regions.
+
+```{r}
+my_ld <- 5000
+
+search_regions <- flank(sig_hits_gr, my_ld, both = TRUE)
+search_regions
+```
+
+Now we'll use `findOverlaps` to identify which genes are in each region.
+
+```{r}
+my_hits <- findOverlaps(search_regions, gtf1)
+my_hits
+```
+
+Let's translate this to a table of SNP names and gene names.
+
+```{r}
+my_hits2 <- data.frame(SNP = search_regions$Name[queryHits(my_hits)],
+                       Gene = gtf1$gene_id[subjectHits(my_hits)],
+                       Description = gtf1$description[subjectHits(my_hits)])
+my_hits2
+```
+
+And maybe we want to add a column to our table that lists every nearby gene.
+
+```{r}
+sig_hits$Genes <- sapply(sig_hits$SNP,
+                         function(x){
+                           genes <- my_hits2$Gene[my_hits2$SNP == x]
+                           paste(genes, collapse = ";")
+                         })
+sig_hits
+```
+
+We can save that output to a file.  If you're worried about having gene names
+that Excel could change to dates (_e.g._ _MAR7_), save to tab-delimited text.
+Then when you import to Excel, you can tell it to keep particular columns as text.
+
+```{r eval = FALSE}
+write.table(sig_hits, file = "sig_hits_genes.tsv", sep = "\t", row.names = FALSE)
+```
+
+> ## Challenge: SNPs within genes
+>
+> Modify the above code to identify which SNPs are within genes, and which genes
+> they are within.
+>
+> > ## Solution
+> >
+> > ```{r}
+> > my_hits3 <- findOverlaps(sig_hits_gr, gtf1)
+> > my_hits4 <- data.frame(SNP = sig_hits_gr$Name[queryHits(my_hits3)],
+> >                        Gene = gtf1$gene_id[subjectHits(my_hits3)],
+> >                        Description = gtf1$description[subjectHits(my_hits3)])
+> > my_hits4
+> > ```
+> {: .solution}
+{: .challenge}
+
+> ## Bonus challenge: SNPs in coding regions
+>
+> Which of the significant SNPs are within coding regions of genes?  Hint: find
+> rows of the genome annotation with the type "CDS".
+>
+> > ## Solution
+> > ```{r}
+> > gtf2 <- gtf0[gtf0$type == "CDS"]
+> > sig_hits_coding <- subsetByOverlaps(sig_hits_gr, gtf2)
+> > sig_hits_coding
+> > ```
+> {: .solution}
+{: .challenge}
+
+## Identifying functional consequences of SNPs
+
+Let's get a list of all SNPs that are within our search regions.  We'll look for
+functional effects of these in order to find potential causative SNPs.
+We'll keep these in a `CollapsedVCF` object.
+
+```{r}
+snps_to_search <- subsetByOverlaps(mydata, search_regions)
+snps_to_search
+```
+
+We'll need our reference genome sequence.
+
+```{r}
+mygenome <- FaFile("data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta")
+```
+
+We have our genome annotation imported as a `GRanges` already, but that won't do
+for the function we're going to use.  We need to import it instead as a `TxDb`
+object.
+
+```{r txdb}
+my_txdb <- makeTxDbFromGFF("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3",
+                           format = "gff3", organism = "Zea mays",
+                           dataSource = "MaizeGDB")
+```
+
+The chromosome names in the FASTA file are in "Chr1" format, whereas the
+chromosome names in the GFF and VCF files are in "1" format.  We have to get
+everything to match.  We can't modify the reference genome, so we will modify
+the imported VCF and `TxDb` data.
+
+```{r}
+seqinfo_vcf <- seqinfo(snps_to_search)
+seqinfo_vcf
+seqnames(seqinfo_vcf) <- "Chr1"
+seqinfo_vcf
+seqinfo(snps_to_search, new2old = 1) <- seqinfo_vcf
+
+rowRanges(snps_to_search)
+
+seqinfo_txdb <- seqinfo(my_txdb)
+seqinfo_txdb
+seqnames(seqinfo_txdb)[1:10] <- paste0("Chr", seqnames(seqinfo_txdb)[1:10])
+seqinfo_txdb
+seqinfo(my_txdb, new2old = 1:length(seqinfo_txdb)) <- seqinfo_txdb
+```
+
+> ## TxDb objects
+>
+> If you want to work a lot with genome annotations, see
+> `vignette("GenomicFeatures", package = "GenomicFeatures") to learn
+> more.  We can get a `GRanges` of all genes for example with the
+> `genes` function:
+>
+> ```{r}
+> genes(my_txdb)
+> ```
+>
+> You can also get `GRanges` for exons sorted into transcripts:
+>
+> ```{r}
+> exonsBy(my_txdb, by = "tx")
+> ```
+{: .callout}
+
+Now we have our VCF with SNPs of interest, our reference genome, and our
+annotation all imported and matched up.  Finally, we're able to predict changes
+in amino acid sequences resulting from these SNPs.
+
+```{r}
+pc <- predictCoding(snps_to_search, my_txdb, mygenome)
+pc
+```
+
+There are far fewer rows in `pc` than in `snps_to_search`, because only SNPs in
+protein coding regions are returned.  We can see the types of mutation and how
+many of each were found.
+
+```{r}
+table(pc$CONSEQUENCE)
+```
+
+We have transcript numbers in the `TXID` column, but would like to convert them
+to transcript names.  We can look up that data in the `TxDb` object.
+
+```{r}
+my_txnames <- select(my_txdb, pc$TXID, c("TXID", "TXNAME"), "TXID")
+head(my_txnames)
+identical(my_txnames$TXID, as.integer(pc$TXID))
+pc$TXNAME <- my_txnames$TXNAME
+```
 
 
+> ## Challenge: data export
+>
+> Look at `?predictCoding` to determine what the various columns mean.  Construct
+> a data frame with the information that you find to be most relevant, and export
+> it to CSV.
+>
+> > ## Solution
+> >
+> > This may vary based on subjective opinions of what information is important.
+> > Note the use of `unlist` for `PROTEINLOC`.
+> >
+> > ```{r eval = FALSE}
+> > df <- data.frame(SNP = names(pc),
+> >                  Chromosome = seqnames(pc),
+> >                  Position = start(pc),
+> >                  Transcript = pc$TXNAME,
+> >                  Consequence = pc$CONSEQUENCE,
+> >                  AA_position = unlist(pc$PROTEINLOC),
+> >                  Ref_AA = pc$REFAA,
+> >                  Var_AA = pc$VARAA)
+> > write.csv(df, file = "protein_coding_variants.csv", row.names = FALSE)
+> > ```
+> {: .solution}
+{: .challenge}
 
+> ## For human data
+>
+> If you are working with human variants, you also have access to the SIFT and
+> PolyPhen databases.  See section 5 of `vignette("VariantAnnotation")`.
+{: .callout}
 
 {% include links.md %}

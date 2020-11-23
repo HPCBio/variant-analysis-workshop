@@ -14,6 +14,12 @@ Alternative allele
 Annotation
 :   The locations of genes, transcripts, exons, and CDS in the genome, as well as some metadata about genes.
 
+Candidate gene
+:   A gene hypothesized to impact a trait.
+
+Causative SNP
+:   A SNP that directly affects a trait.  (As opposed to simply being linked to the causative mutation.)
+
 CDS
 :   Coding sequence.  DNA sequence that can be directly translated to amino acid sequence.
 

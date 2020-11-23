@@ -14,7 +14,7 @@ objectives:
 keypoints:
 - "Genome annotations can either be stored as GRanges imported with rtracklayer, or as TxDb imported with GenomicFeatures."
 - "Functions that find overlaps between GRanges objects can be used to identify genes near SNPs."
-- "The predictCoding function in VariantAnnotation identified amino acid changes caused by SNPs."
+- "The predictCoding function in VariantAnnotation identifies amino acid changes caused by SNPs."
 ---
 
 
@@ -27,8 +27,980 @@ library(GenomicFeatures)
 ~~~
 {: .language-r}
 
+Here's code to reload the dataset:
+
+
+~~~
+myvcf3 <- VcfFile("data/hmp321_agpv4_chr1_subset_filtered.vcf.bgz")
+hdr <- scanVcfHeader(myvcf3)
+all_sam <- samples(hdr)
+keep_sam <- all_sam[!all_sam %in% c("32", "98F1")]
+keep_regions <- GRanges(seqnames = "1",
+                        ranges = IRanges(start = c(21.4e6, 22.9e6),
+                                         end = c(22.3e6, 23.8e6)))
+names(keep_regions) <- c("Region_1", "Region_2")
+svp <- ScanVcfParam(info = c("DP", "MAF"), geno = "GT",
+                    samples = keep_sam, which = keep_regions,
+                    fixed = "ALT")
+mydata <- readVcf(myvcf3, param = svp, genome = seqlevels(keep_regions))
+~~~
+{: .language-r}
+
+Let's say that after you explored and filtered your dataset, you exported your
+SNP data to a GWAS software and identified some SNPs that were significantly
+associated with your trait of interest.  How can you find candidate genes?
+And do any of the variants seem to have functional consequences?  Rather than
+spending an entire week with a genome browser, let's automate these tasks.
+
+## What genes are near my SNP?
+
+In an earlier episode, we loaded the genome annotation from a GFF file.
+
+
+~~~
+gtf0 <- rtracklayer::import("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3")
+gtf1 <- gtf0[gtf0$type == "gene"]
+gtf1[,c("gene_id", "description")]
+~~~
+{: .language-r}
 
 
 
+~~~
+GRanges object with 39498 ranges and 2 metadata columns:
+          seqnames        ranges strand |        gene_id            description
+             <Rle>     <IRanges>  <Rle> |    <character>            <character>
+      [1]        1   44289-49837      + | Zm00001d027230         Zm00001d027230
+      [2]        1   50877-55716      - | Zm00001d027231         Zm00001d027231
+      [3]        1   92299-95134      - | Zm00001d027232         Zm00001d027232
+      [4]        1 111655-118312      - | Zm00001d027233         Zm00001d027233
+      [5]        1 118683-119739      - | Zm00001d027234         Zm00001d027234
+      ...      ...           ...    ... .            ...                    ...
+  [39494]       Pt 134341-134862      - |  GRMZM5G885905 Uncharacterized prot..
+  [39495]       Pt 134923-135222      - |  GRMZM5G866761 Putative uncharacter..
+  [39496]       Pt 138323-139807      + |  GRMZM5G818111                   <NA>
+  [39497]       Pt 139824-140048      + |  GRMZM5G866064                   <NA>
+  [39498]       Pt 140068-140361      + |  GRMZM5G855343                   <NA>
+  -------
+  seqinfo: 267 sequences from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+Let's say we performed GWAS and have a spreadsheet of our top hits.  If you
+haven't already, download the example spreadsheet:
+
+
+~~~
+download.file("https://raw.githubusercontent.com/HPCBio/variant-analysis-workshop/gh-pages/_episodes_rmd/data/sig_hits.csv",
+              destfile = "data/sig_hits.csv")
+~~~
+{: .language-r}
+
+Now import that data into R.
+
+
+~~~
+sig_hits <- read.csv("data/sig_hits.csv", stringsAsFactors = FALSE)
+head(sig_hits)
+~~~
+{: .language-r}
+
+
+
+~~~
+         SNP Chrom      Pos   log10P
+1 1-21545431     1 21863251 9.917759
+2 1-21470550     1 21776482 9.813656
+3 1-23066684     1 23453920 9.633105
+4 1-21161473     1 21467486 9.632094
+5 1-21540889     1 21858710 9.474378
+6 1-21524270     1 21842097 9.468465
+~~~
+{: .output}
+
+To represent the location of these SNPs, we'll make a `GRanges` object.
+
+
+~~~
+sig_hits_gr <- GRanges(seqnames = as.character(sig_hits$Chrom),
+                       ranges = IRanges(start = sig_hits$Pos,
+                                        end = sig_hits$Pos),
+                       Name = sig_hits$SNP,
+                       log10P = sig_hits$log10P)
+sig_hits_gr
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 37 ranges and 2 metadata columns:
+       seqnames    ranges strand |        Name    log10P
+          <Rle> <IRanges>  <Rle> | <character> <numeric>
+   [1]        1  21863251      * |  1-21545431   9.91776
+   [2]        1  21776482      * |  1-21470550   9.81366
+   [3]        1  23453920      * |  1-23066684   9.63311
+   [4]        1  21467486      * |  1-21161473   9.63209
+   [5]        1  21858710      * |  1-21540889   9.47438
+   ...      ...       ...    ... .         ...       ...
+  [33]        1  22011911      * |  1-21714795   5.36808
+  [34]        1  23089222      * |  1-22713889   5.33649
+  [35]        1  23658823      * |  1-23273113   5.12980
+  [36]        1  23615797      * |  1-23230131   5.04723
+  [37]        1  23236989      * |  1-22859536   5.04382
+  -------
+  seqinfo: 1 sequence from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+Based on our LD estimates in the last episode, we'll want to search within
+5 kb of each SNP for candidate genes.  We can make another `GRanges` object
+to indicate these search regions.
+
+
+~~~
+my_ld <- 5000
+
+search_regions <- flank(sig_hits_gr, my_ld, both = TRUE)
+search_regions
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 37 ranges and 2 metadata columns:
+       seqnames            ranges strand |        Name    log10P
+          <Rle>         <IRanges>  <Rle> | <character> <numeric>
+   [1]        1 21858251-21868250      * |  1-21545431   9.91776
+   [2]        1 21771482-21781481      * |  1-21470550   9.81366
+   [3]        1 23448920-23458919      * |  1-23066684   9.63311
+   [4]        1 21462486-21472485      * |  1-21161473   9.63209
+   [5]        1 21853710-21863709      * |  1-21540889   9.47438
+   ...      ...               ...    ... .         ...       ...
+  [33]        1 22006911-22016910      * |  1-21714795   5.36808
+  [34]        1 23084222-23094221      * |  1-22713889   5.33649
+  [35]        1 23653823-23663822      * |  1-23273113   5.12980
+  [36]        1 23610797-23620796      * |  1-23230131   5.04723
+  [37]        1 23231989-23241988      * |  1-22859536   5.04382
+  -------
+  seqinfo: 1 sequence from an unspecified genome; no seqlengths
+~~~
+{: .output}
+
+Now we'll use `findOverlaps` to identify which genes are in each region.
+
+
+~~~
+my_hits <- findOverlaps(search_regions, gtf1)
+my_hits
+~~~
+{: .language-r}
+
+
+
+~~~
+Hits object with 26 hits and 0 metadata columns:
+       queryHits subjectHits
+       <integer>   <integer>
+   [1]         1         672
+   [2]         1         673
+   [3]         2         665
+   [4]         2         666
+   [5]         2         667
+   ...       ...         ...
+  [22]        26         672
+  [23]        27         671
+  [24]        32         681
+  [25]        33         682
+  [26]        34         710
+  -------
+  queryLength: 37 / subjectLength: 39498
+~~~
+{: .output}
+
+Let's translate this to a table of SNP names and gene names.
+
+
+~~~
+my_hits2 <- data.frame(SNP = search_regions$Name[queryHits(my_hits)],
+                       Gene = gtf1$gene_id[subjectHits(my_hits)],
+                       Description = gtf1$description[subjectHits(my_hits)])
+my_hits2
+~~~
+{: .language-r}
+
+
+
+~~~
+          SNP           Gene
+1  1-21545431 Zm00001d028062
+2  1-21545431 Zm00001d028063
+3  1-21470550 Zm00001d028054
+4  1-21470550 Zm00001d028055
+5  1-21470550 Zm00001d028056
+6  1-21470550 Zm00001d028057
+7  1-21540889 Zm00001d028062
+8  1-21540889 Zm00001d028063
+9  1-21524270 Zm00001d028062
+10 1-22636910 Zm00001d028102
+11 1-22636910 Zm00001d028103
+12 1-21603379 Zm00001d028066
+13 1-21598747 Zm00001d028066
+14 1-22751964 Zm00001d028111
+15 1-23224727 Zm00001d028128
+16 1-21563089 Zm00001d028064
+17 1-22974357 Zm00001d028118
+18 1-22583176 Zm00001d028098
+19 1-22715750 Zm00001d028108
+20 1-22640278 Zm00001d028103
+21 1-22640278 Zm00001d028104
+22 1-21533453 Zm00001d028062
+23 1-21499325 Zm00001d028061
+24 1-21694741 Zm00001d028073
+25 1-21714795 Zm00001d028074
+26 1-22713889 Zm00001d028108
+                                                      Description
+1  CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+2                                                  Zm00001d028063
+3                                                  Zm00001d028054
+4                                                  Zm00001d028055
+5                                                  Zm00001d028056
+6                                                  Zm00001d028057
+7  CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+8                                                  Zm00001d028063
+9  CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+10                                                 Zm00001d028102
+11                                                 Zm00001d028103
+12                                                 Zm00001d028066
+13                                                 Zm00001d028066
+14                                                 Zm00001d028111
+15                                                 Zm00001d028128
+16                                                 Zm00001d028064
+17                                                 Zm00001d028118
+18                                                 Zm00001d028098
+19                                                 Zm00001d028108
+20                                                 Zm00001d028103
+21                                                 Zm00001d028104
+22 CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+23                                                 Zm00001d028061
+24                                                 Zm00001d028073
+25                                                 Zm00001d028074
+26                                                 Zm00001d028108
+~~~
+{: .output}
+
+And maybe we want to add a column to our table that lists every nearby gene.
+
+
+~~~
+sig_hits$Genes <- sapply(sig_hits$SNP,
+                         function(x){
+                           genes <- my_hits2$Gene[my_hits2$SNP == x]
+                           paste(genes, collapse = ";")
+                         })
+sig_hits
+~~~
+{: .language-r}
+
+
+
+~~~
+          SNP Chrom      Pos   log10P
+1  1-21545431     1 21863251 9.917759
+2  1-21470550     1 21776482 9.813656
+3  1-23066684     1 23453920 9.633105
+4  1-21161473     1 21467486 9.632094
+5  1-21540889     1 21858710 9.474378
+6  1-21524270     1 21842097 9.468465
+7  1-22534809     1 22917062 9.355975
+8  1-22636910     1 23012963 9.046269
+9  1-23096680     1 23484423 8.845528
+10 1-21603379     1 21904274 8.514568
+11 1-21406012     1 21709908 8.384472
+12 1-21598747     1 21899696 8.312084
+13 1-22751964     1 23127244 8.175816
+14 1-23224727     1 23610393 8.165355
+15 1-21369527     1 21674878 8.120414
+16 1-21563089     1 21879767 7.879734
+17 1-21401703     1 21705600 7.846956
+18 1-22974357     1 23360219 7.724650
+19 1-22583176     1 22959431 7.565953
+20 1-21274922     1 21589090 7.103093
+21 1-23378850     1 23768488 7.093798
+22 1-22991748     1 23377601 7.068908
+23 1-22715750     1 23091083 6.958135
+24 1-22640278     1 23016331 6.866281
+25 1-21152420     1 21458433 6.462329
+26 1-21533453     1 21851279 6.395184
+27 1-21499325     1 21805256 5.983543
+28 1-21436109     1 21741028 5.895989
+29 1-21172946     1 21478958 5.894014
+30 1-22810129     1 23187584 5.713232
+31 1-21403068     1 21706964 5.494226
+32 1-21694741     1 21991857 5.450143
+33 1-21714795     1 22011911 5.368084
+34 1-22713889     1 23089222 5.336487
+35 1-23273113     1 23658823 5.129798
+36 1-23230131     1 23615797 5.047230
+37 1-22859536     1 23236989 5.043819
+                                                         Genes
+1                                Zm00001d028062;Zm00001d028063
+2  Zm00001d028054;Zm00001d028055;Zm00001d028056;Zm00001d028057
+3                                                             
+4                                                             
+5                                Zm00001d028062;Zm00001d028063
+6                                               Zm00001d028062
+7                                                             
+8                                Zm00001d028102;Zm00001d028103
+9                                                             
+10                                              Zm00001d028066
+11                                                            
+12                                              Zm00001d028066
+13                                              Zm00001d028111
+14                                              Zm00001d028128
+15                                                            
+16                                              Zm00001d028064
+17                                                            
+18                                              Zm00001d028118
+19                                              Zm00001d028098
+20                                                            
+21                                                            
+22                                                            
+23                                              Zm00001d028108
+24                               Zm00001d028103;Zm00001d028104
+25                                                            
+26                                              Zm00001d028062
+27                                              Zm00001d028061
+28                                                            
+29                                                            
+30                                                            
+31                                                            
+32                                              Zm00001d028073
+33                                              Zm00001d028074
+34                                              Zm00001d028108
+35                                                            
+36                                                            
+37                                                            
+~~~
+{: .output}
+
+We can save that output to a file.  If you're worried about having gene names
+that Excel could change to dates (_e.g._ _MAR7_), save to tab-delimited text.
+Then when you import to Excel, you can tell it to keep particular columns as text.
+
+
+~~~
+write.table(sig_hits, file = "sig_hits_genes.tsv", sep = "\t", row.names = FALSE)
+~~~
+{: .language-r}
+
+> ## Challenge: SNPs within genes
+>
+> Modify the above code to identify which SNPs are within genes, and which genes
+> they are within.
+>
+> > ## Solution
+> >
+> > 
+> > ~~~
+> > my_hits3 <- findOverlaps(sig_hits_gr, gtf1)
+> > my_hits4 <- data.frame(SNP = sig_hits_gr$Name[queryHits(my_hits3)],
+> >                        Gene = gtf1$gene_id[subjectHits(my_hits3)],
+> >                        Description = gtf1$description[subjectHits(my_hits3)])
+> > my_hits4
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> >          SNP           Gene
+> > 1 1-21470550 Zm00001d028055
+> > 2 1-21540889 Zm00001d028062
+> > 3 1-21603379 Zm00001d028066
+> > 4 1-22715750 Zm00001d028108
+> > 5 1-22640278 Zm00001d028103
+> > 6 1-21533453 Zm00001d028062
+> > 7 1-21694741 Zm00001d028073
+> >                                                      Description
+> > 1                                                 Zm00001d028055
+> > 2 CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+> > 3                                                 Zm00001d028066
+> > 4                                                 Zm00001d028108
+> > 5                                                 Zm00001d028103
+> > 6 CASP-like protein 5A2 [Source:UniProtKB/Swiss-Prot;Acc:P0DI66]
+> > 7                                                 Zm00001d028073
+> > ~~~
+> > {: .output}
+> {: .solution}
+{: .challenge}
+
+> ## Bonus challenge: SNPs in coding regions
+>
+> Which of the significant SNPs are within coding regions of genes?  Hint: find
+> rows of the genome annotation with the type "CDS".
+>
+> > ## Solution
+> > 
+> > ~~~
+> > gtf2 <- gtf0[gtf0$type == "CDS"]
+> > sig_hits_coding <- subsetByOverlaps(sig_hits_gr, gtf2)
+> > sig_hits_coding
+> > ~~~
+> > {: .language-r}
+> > 
+> > 
+> > 
+> > ~~~
+> > GRanges object with 2 ranges and 2 metadata columns:
+> >       seqnames    ranges strand |        Name    log10P
+> >          <Rle> <IRanges>  <Rle> | <character> <numeric>
+> >   [1]        1  21904274      * |  1-21603379   8.51457
+> >   [2]        1  23091083      * |  1-22715750   6.95814
+> >   -------
+> >   seqinfo: 1 sequence from an unspecified genome; no seqlengths
+> > ~~~
+> > {: .output}
+> {: .solution}
+{: .challenge}
+
+## Identifying functional consequences of SNPs
+
+Let's get a list of all SNPs that are within our search regions.  We'll look for
+functional effects of these in order to find potential causative SNPs.
+We'll keep these in a `CollapsedVCF` object.
+
+
+~~~
+snps_to_search <- subsetByOverlaps(mydata, search_regions)
+snps_to_search
+~~~
+{: .language-r}
+
+
+
+~~~
+class: CollapsedVCF 
+dim: 7535 198 
+rowRanges(vcf):
+  GRanges with 3 metadata columns: paramRangeID, REF, ALT
+info(vcf):
+  DataFrame with 2 columns: DP, MAF
+info(header(vcf)):
+       Number Type    Description           
+   DP  1      Integer Total Depth           
+   MAF 1      Float   Minor allele frequency
+geno(vcf):
+  List of length 1: GT
+geno(header(vcf)):
+      Number Type   Description
+   GT 1      String Genotype   
+~~~
+{: .output}
+
+We'll need our reference genome sequence.
+
+
+~~~
+mygenome <- FaFile("data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta")
+~~~
+{: .language-r}
+
+We have our genome annotation imported as a `GRanges` already, but that won't do
+for the function we're going to use.  We need to import it instead as a `TxDb`
+object.
+
+
+~~~
+my_txdb <- makeTxDbFromGFF("data/Zm-B73-REFERENCE-GRAMENE-4.0_Zm00001d.2.gff3",
+                           format = "gff3", organism = "Zea mays",
+                           dataSource = "MaizeGDB")
+~~~
+{: .language-r}
+
+
+
+~~~
+Import genomic features from the file as a GRanges object ... OK
+Prepare the 'metadata' data frame ... OK
+Make the TxDb object ... 
+~~~
+{: .output}
+
+
+
+~~~
+Warning in .extract_exons_from_GRanges(exon_IDX, gr, mcols0, tx_IDX, feature = "exon", : 3327 exons couldn't be linked to a transcript so were dropped (showing
+  only the first 6):
+  seqid   start     end strand   ID                      Name
+1     1  572435  572663      + <NA> Zm00001d022649_T001.exon1
+2     1 1030351 1031090      + <NA> Zm00001d022650_T001.exon1
+3     1 1540407 1540586      - <NA> Zm00001d022651_T001.exon1
+4     1 1918444 1918644      - <NA> Zm00001d022652_T001.exon1
+5     1 2170280 2170492      - <NA> Zm00001d022653_T001.exon2
+6     1 2170757 2170983      - <NA> Zm00001d022653_T001.exon1
+                          Parent Parent_type
+1 transcript:Zm00001d022649_T001        <NA>
+2 transcript:Zm00001d022650_T001        <NA>
+3 transcript:Zm00001d022651_T001        <NA>
+4 transcript:Zm00001d022652_T001        <NA>
+5 transcript:Zm00001d022653_T001        <NA>
+6 transcript:Zm00001d022653_T001        <NA>
+~~~
+{: .warning}
+
+
+
+~~~
+OK
+~~~
+{: .output}
+
+The chromosome names in the FASTA file are in "Chr1" format, whereas the
+chromosome names in the GFF and VCF files are in "1" format.  We have to get
+everything to match.  We can't modify the reference genome, so we will modify
+the imported VCF and `TxDb` data.
+
+
+~~~
+seqinfo_vcf <- seqinfo(snps_to_search)
+seqinfo_vcf
+~~~
+{: .language-r}
+
+
+
+~~~
+Seqinfo object with 1 sequence from 1 genome; no seqlengths:
+  seqnames seqlengths isCircular genome
+  1                NA         NA      1
+~~~
+{: .output}
+
+
+
+~~~
+seqnames(seqinfo_vcf) <- "Chr1"
+seqinfo_vcf
+~~~
+{: .language-r}
+
+
+
+~~~
+Seqinfo object with 1 sequence from 1 genome; no seqlengths:
+  seqnames seqlengths isCircular genome
+  Chr1             NA         NA      1
+~~~
+{: .output}
+
+
+
+~~~
+seqinfo(snps_to_search, new2old = 1) <- seqinfo_vcf
+
+rowRanges(snps_to_search)
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 7535 ranges and 3 metadata columns:
+             seqnames    ranges strand | paramRangeID            REF
+                <Rle> <IRanges>  <Rle> |     <factor> <DNAStringSet>
+  1-21147708     Chr1  21453721      * |     Region_1              G
+  1-21147716     Chr1  21453729      * |     Region_1              C
+  1-21147728     Chr1  21453741      * |     Region_1              C
+  1-21147835     Chr1  21453848      * |     Region_1              G
+  1-21147904     Chr1  21453917      * |     Region_1              C
+         ...      ...       ...    ... .          ...            ...
+  1-23383616     Chr1  23773254      * |     Region_2              C
+  1-23383642     Chr1  23773280      * |     Region_2              C
+  1-23383691     Chr1  23773329      * |     Region_2              T
+  1-23383758     Chr1  23773396      * |     Region_2              C
+  1-23383792     Chr1  23773430      * |     Region_2              A
+                         ALT
+             <CharacterList>
+  1-21147708               T
+  1-21147716               G
+  1-21147728             T,G
+  1-21147835               A
+  1-21147904               T
+         ...             ...
+  1-23383616               T
+  1-23383642               T
+  1-23383691               A
+  1-23383758               T
+  1-23383792               G
+  -------
+  seqinfo: 1 sequence from 1 genome; no seqlengths
+~~~
+{: .output}
+
+
+
+~~~
+seqinfo_txdb <- seqinfo(my_txdb)
+seqinfo_txdb
+~~~
+{: .language-r}
+
+
+
+~~~
+Seqinfo object with 108 sequences (2 circular) from an unspecified genome; no seqlengths:
+  seqnames    seqlengths isCircular genome
+  1                 <NA>       <NA>   <NA>
+  2                 <NA>       <NA>   <NA>
+  3                 <NA>       <NA>   <NA>
+  4                 <NA>       <NA>   <NA>
+  5                 <NA>       <NA>   <NA>
+  ...                ...        ...    ...
+  B73V4_ctg92       <NA>       <NA>   <NA>
+  B73V4_ctg95       <NA>       <NA>   <NA>
+  B73V4_ctg97       <NA>       <NA>   <NA>
+  B73V4_ctg98       <NA>       <NA>   <NA>
+  Pt                <NA>       TRUE   <NA>
+~~~
+{: .output}
+
+
+
+~~~
+seqnames(seqinfo_txdb)[1:10] <- paste0("Chr", seqnames(seqinfo_txdb)[1:10])
+seqinfo_txdb
+~~~
+{: .language-r}
+
+
+
+~~~
+Seqinfo object with 108 sequences (2 circular) from an unspecified genome; no seqlengths:
+  seqnames    seqlengths isCircular genome
+  Chr1              <NA>       <NA>   <NA>
+  Chr2              <NA>       <NA>   <NA>
+  Chr3              <NA>       <NA>   <NA>
+  Chr4              <NA>       <NA>   <NA>
+  Chr5              <NA>       <NA>   <NA>
+  ...                ...        ...    ...
+  B73V4_ctg92       <NA>       <NA>   <NA>
+  B73V4_ctg95       <NA>       <NA>   <NA>
+  B73V4_ctg97       <NA>       <NA>   <NA>
+  B73V4_ctg98       <NA>       <NA>   <NA>
+  Pt                <NA>       TRUE   <NA>
+~~~
+{: .output}
+
+
+
+~~~
+seqinfo(my_txdb, new2old = 1:length(seqinfo_txdb)) <- seqinfo_txdb
+~~~
+{: .language-r}
+
+> ## TxDb objects
+>
+> If you want to work a lot with genome annotations, see
+> `vignette("GenomicFeatures", package = "GenomicFeatures") to learn
+> more.  We can get a `GRanges` of all genes for example with the
+> `genes` function:
+>
+> 
+> ~~~
+> genes(my_txdb)
+> ~~~
+> {: .language-r}
+> 
+> 
+> 
+> ~~~
+>   11 genes were dropped because they have exons located on both strands
+>   of the same reference sequence or on more than one reference sequence,
+>   so cannot be represented by a single genomic range.
+>   Use 'single.strand.genes.only=FALSE' to get all the genes in a
+>   GRangesList object, or use suppressMessages() to suppress this message.
+> ~~~
+> {: .output}
+> 
+> 
+> 
+> ~~~
+> GRanges object with 167 ranges and 1 metadata column:
+>         seqnames              ranges strand |     gene_id
+>            <Rle>           <IRanges>  <Rle> | <character>
+>      A2     Chr5   68025894-68027081      + |          A2
+>    ACK2     Chr2 243948909-243953867      - |        ACK2
+>    ADF3     Chr1 298705539-298708107      + |        ADF3
+>    ALS1     Chr5 167860552-167862743      + |        ALS1
+>    ANT2     Chr4 166706837-166709814      + |        ANT2
+>     ...      ...                 ...    ... .         ...
+>   rps16       Pt           3363-5604      - |       rps16
+>   rps18       Pt         67532-68044      + |       rps18
+>    rps2       Pt         31858-32568      + |        rps2
+>    rps3       Pt         81113-82518      - |        rps3
+>   ycf70       Pt         12720-15097      - |       ycf70
+>   -------
+>   seqinfo: 108 sequences (2 circular) from an unspecified genome; no seqlengths
+> ~~~
+> {: .output}
+>
+> You can also get `GRanges` for exons sorted into transcripts:
+>
+> 
+> ~~~
+> exonsBy(my_txdb, by = "tx")
+> ~~~
+> {: .language-r}
+> 
+> 
+> 
+> ~~~
+> GRangesList object of length 133940:
+> $`1`
+> GRanges object with 9 ranges and 3 metadata columns:
+>       seqnames      ranges strand |   exon_id              exon_name exon_rank
+>          <Rle>   <IRanges>  <Rle> | <integer>            <character> <integer>
+>   [1]     Chr1 44289-44947      + |         1 Zm00001d027230_T001...         1
+>   [2]     Chr1 45666-45803      + |         2 Zm00001d027230_T001...         2
+>   [3]     Chr1 45888-46133      + |         3 Zm00001d027230_T001...         3
+>   [4]     Chr1 46229-46342      + |         4 Zm00001d027230_T001...         4
+>   [5]     Chr1 46451-46633      + |         5 Zm00001d027230_T001...         5
+>   [6]     Chr1 47045-47262      + |         6 Zm00001d027230_T001...         6
+>   [7]     Chr1 47650-48111      + |         7 Zm00001d027230_T001...         7
+>   [8]     Chr1 48200-49247      + |         8 Zm00001d027230_T001...         8
+>   [9]     Chr1 49330-49837      + |         9 Zm00001d027230_T001...         9
+>   -------
+>   seqinfo: 108 sequences (2 circular) from an unspecified genome; no seqlengths
+> 
+> $`2`
+> GRanges object with 2 ranges and 3 metadata columns:
+>       seqnames        ranges strand |   exon_id              exon_name
+>          <Rle>     <IRanges>  <Rle> | <integer>            <character>
+>   [1]     Chr1 122120-122427      + |        10 Zm00001d027235_T001...
+>   [2]     Chr1 122500-122614      + |        11 Zm00001d027235_T001...
+>       exon_rank
+>       <integer>
+>   [1]         1
+>   [2]         2
+>   -------
+>   seqinfo: 108 sequences (2 circular) from an unspecified genome; no seqlengths
+> 
+> ...
+> <133938 more elements>
+> ~~~
+> {: .output}
+{: .callout}
+
+Now we have our VCF with SNPs of interest, our reference genome, and our
+annotation all imported and matched up.  Finally, we're able to predict changes
+in amino acid sequences resulting from these SNPs.
+
+
+~~~
+pc <- predictCoding(snps_to_search, my_txdb, mygenome)
+~~~
+{: .language-r}
+
+
+
+~~~
+Warning in valid.GenomicRanges.seqinfo(x, suggest.trim = TRUE): GRanges object contains 287 out-of-bound ranges located on sequences
+  1218, 1219, 1220, 11099, 1221, 1223, 11105, 1263, 1264, 1265, 1266,
+  11193, 11194, 11195, and 1269. Note that ranges located on a sequence
+  whose length is unknown (NA) or on a circular sequence are not
+  considered out-of-bound (use seqlengths() and isCircular() to get the
+  lengths and circularity flags of the underlying sequences). You can use
+  trim() to trim these ranges. See ?`trim,GenomicRanges-method` for more
+  information.
+~~~
+{: .warning}
+
+
+
+~~~
+Warning in .predictCodingGRangesList(query, cache[["cdsbytx"]], seqSource, :
+records with missing 'varAllele' were ignored
+~~~
+{: .warning}
+
+
+
+~~~
+pc
+~~~
+{: .language-r}
+
+
+
+~~~
+GRanges object with 438 ranges and 15 metadata columns:
+             seqnames    ranges strand | paramRangeID            REF
+                <Rle> <IRanges>  <Rle> |     <factor> <DNAStringSet>
+  1-21465774     Chr1  21771706      + |     Region_1              G
+  1-21465774     Chr1  21771706      + |     Region_1              G
+  1-21465774     Chr1  21771706      + |     Region_1              G
+  1-21465774     Chr1  21771706      + |     Region_1              G
+  1-21465774     Chr1  21771706      + |     Region_1              G
+         ...      ...       ...    ... .          ...            ...
+  1-23223510     Chr1  23609176      + |     Region_2              G
+  1-23223510     Chr1  23609176      + |     Region_2              G
+  1-23223611     Chr1  23609277      + |     Region_2              G
+  1-23223611     Chr1  23609277      + |     Region_2              G
+  1-23223611     Chr1  23609277      + |     Region_2              G
+                         ALT      varAllele    CDSLOC    PROTEINLOC   QUERYID
+             <CharacterList> <DNAStringSet> <IRanges> <IntegerList> <integer>
+  1-21465774             A,C              A       253            85      1463
+  1-21465774             A,C              A       253            85      1463
+  1-21465774             A,C              A       253            85      1463
+  1-21465774             A,C              C       253            85      1463
+  1-21465774             A,C              C       253            85      1463
+         ...             ...            ...       ...           ...       ...
+  1-23223510               T              T      1810           604      6974
+  1-23223510               T              T       634           212      6974
+  1-23223611               C              C      1995           665      6975
+  1-23223611               C              C      1911           637      6975
+  1-23223611               C              C       735           245      6975
+                    TXID             CDSID      GENEID   CONSEQUENCE
+             <character>     <IntegerList> <character>      <factor>
+  1-21465774        1218 12014,12015,12016        <NA> nonsynonymous
+  1-21465774        1219 12014,12015,12016        <NA> nonsynonymous
+  1-21465774        1220 12014,12015,12016        <NA> nonsynonymous
+  1-21465774        1218 12014,12015,12016        <NA> nonsynonymous
+  1-21465774        1219 12014,12015,12016        <NA> nonsynonymous
+         ...         ...               ...         ...           ...
+  1-23223510        1313 12481,12482,12483        <NA> nonsynonymous
+  1-23223510        1322 12481,12482,12483        <NA> nonsynonymous
+  1-23223611        1312 12481,12482,12483        <NA> synonymous   
+  1-23223611        1313 12481,12482,12483        <NA> synonymous   
+  1-23223611        1322 12481,12482,12483        <NA> synonymous   
+                   REFCODON       VARCODON         REFAA         VARAA
+             <DNAStringSet> <DNAStringSet> <AAStringSet> <AAStringSet>
+  1-21465774            GTT            ATT             V             I
+  1-21465774            GTT            ATT             V             I
+  1-21465774            GTT            ATT             V             I
+  1-21465774            GTT            CTT             V             L
+  1-21465774            GTT            CTT             V             L
+         ...            ...            ...           ...           ...
+  1-23223510            GGC            TGC             G             C
+  1-23223510            GGC            TGC             G             C
+  1-23223611            ACG            ACC             T             T
+  1-23223611            ACG            ACC             T             T
+  1-23223611            ACG            ACC             T             T
+  -------
+  seqinfo: 1 sequence from 1 genome; no seqlengths
+~~~
+{: .output}
+
+There are far fewer rows in `pc` than in `snps_to_search`, because only SNPs in
+protein coding regions are returned.  We can see the types of mutation and how
+many of each were found.
+
+
+~~~
+table(pc$CONSEQUENCE)
+~~~
+{: .language-r}
+
+
+
+~~~
+
+      nonsense  nonsynonymous not translated     synonymous 
+             1            242              4            191 
+~~~
+{: .output}
+
+We have transcript numbers in the `TXID` column, but would like to convert them
+to transcript names.  We can look up that data in the `TxDb` object.
+
+
+~~~
+my_txnames <- select(my_txdb, pc$TXID, c("TXID", "TXNAME"), "TXID")
+~~~
+{: .language-r}
+
+
+
+~~~
+'select()' returned many:1 mapping between keys and columns
+~~~
+{: .output}
+
+
+
+~~~
+head(my_txnames)
+~~~
+{: .language-r}
+
+
+
+~~~
+  TXID                         TXNAME
+1 1218 transcript:Zm00001d028054_T001
+2 1219 transcript:Zm00001d028054_T002
+3 1220 transcript:Zm00001d028054_T003
+4 1218 transcript:Zm00001d028054_T001
+5 1219 transcript:Zm00001d028054_T002
+6 1220 transcript:Zm00001d028054_T003
+~~~
+{: .output}
+
+
+
+~~~
+identical(my_txnames$TXID, as.integer(pc$TXID))
+~~~
+{: .language-r}
+
+
+
+~~~
+[1] TRUE
+~~~
+{: .output}
+
+
+
+~~~
+pc$TXNAME <- my_txnames$TXNAME
+~~~
+{: .language-r}
+
+
+> ## Challenge: data export
+>
+> Look at `?predictCoding` to determine what the various columns mean.  Construct
+> a data frame with the information that you find to be most relevant, and export
+> it to CSV.
+>
+> > ## Solution
+> >
+> > This may vary based on subjective opinions of what information is important.
+> > Note the use of `unlist` for `PROTEINLOC`.
+> >
+> > 
+> > ~~~
+> > df <- data.frame(SNP = names(pc),
+> >                  Chromosome = seqnames(pc),
+> >                  Position = start(pc),
+> >                  Transcript = pc$TXNAME,
+> >                  Consequence = pc$CONSEQUENCE,
+> >                  AA_position = unlist(pc$PROTEINLOC),
+> >                  Ref_AA = pc$REFAA,
+> >                  Var_AA = pc$VARAA)
+> > write.csv(df, file = "protein_coding_variants.csv", row.names = FALSE)
+> > ~~~
+> > {: .language-r}
+> {: .solution}
+{: .challenge}
+
+> ## For human data
+>
+> If you are working with human variants, you also have access to the SIFT and
+> PolyPhen databases.  See section 5 of `vignette("VariantAnnotation")`.
+{: .callout}
 
 {% include links.md %}
