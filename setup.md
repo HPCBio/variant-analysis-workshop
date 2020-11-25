@@ -76,13 +76,13 @@ find them.
 
 ## Data
 
-We will work with some public data from maize.  There are three files that you
+We will work with some public data from maize.  There are four files that you
 need to download and save to the `data` folder in your project directory.
 
 ### For the December 2020 workshop
 
-In the [Box folder](https://uofi.box.com/s/3t9e9uq7bf2eqto01uy9my66igj6v8qx)
-for this workshop, download the three files in the `data`
+In the **[Box folder](https://uofi.box.com/s/3t9e9uq7bf2eqto01uy9my66igj6v8qx)**
+for this workshop, download the four files in the `data`
 folder.  See below for the origins of these files.
 
 ### Otherwise
@@ -100,6 +100,9 @@ You should also download the
 that we'll be working with.  It is derived from a
 [panel of 1210 maize lines](http://cbsusrv04.tc.cornell.edu/users/panzea/download.aspx?filegroupid=34)
 ([Bukowski et al., 2018](https://doi.org/10.1093/gigascience/gix134])).
+
+Lastly, there is a small
+[CSV to download](https://raw.githubusercontent.com/HPCBio/variant-analysis-workshop/gh-pages/_episodes_rmd/data/sig_hits.csv).
 
 ## R Code
 
