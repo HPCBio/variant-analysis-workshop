@@ -14,5 +14,5 @@ install all required packages before running `make serve` rather than letting
 ## Genomics files
 
 See the [setup document](setup.md) for the genome and annotation files that
-are needed.  You should put these in `_episodes_rmd/data` in order to build the
-site.
+are needed.  You should put these in `_episodes_rmd/data`, and index them
+according to the lesson plan, in order to build the site.
