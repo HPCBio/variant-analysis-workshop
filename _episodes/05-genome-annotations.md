@@ -703,7 +703,7 @@ seqinfo(my_txdb, new2old = 1:length(seqinfo_txdb)) <- seqinfo_txdb
 > ## TxDb objects
 >
 > If you want to work a lot with genome annotations, see
-> `vignette("GenomicFeatures", package = "GenomicFeatures") to learn
+> `vignette("GenomicFeatures", package = "GenomicFeatures")` to learn
 > more.  We can get a `GRanges` of all genes for example with the
 > `genes` function:
 >
