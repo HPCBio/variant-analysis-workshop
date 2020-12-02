@@ -66,6 +66,7 @@ bg <- "data/hmp321_agpv4_chr1_subset.vcf.bgz"
 Now we'll build an index that will make it easy for R to read just particular
 regions of the genome.
 
+
 ~~~
 indexTabix(bg, format = "vcf")
 ~~~
@@ -829,7 +830,7 @@ index now.
 > > ~~~
 > > {: .language-r}
 > > 
-> > <img src="../fig/rmd-03-unnamed-chunk-23-1.png" title="plot of chunk unnamed-chunk-23" alt="plot of chunk unnamed-chunk-23" width="612" style="display: block; margin: auto;" />
+> > <img src="../fig/rmd-03-unnamed-chunk-24-1.png" title="plot of chunk unnamed-chunk-24" alt="plot of chunk unnamed-chunk-24" width="612" style="display: block; margin: auto;" />
 > >
 > > But there are many other possible ways to do it, such as using `ggplot2`.
 > > Note that `ggplot` understands `data.frame`s and `tibble`s but not
@@ -852,7 +853,7 @@ index now.
 > > ~~~
 > > {: .output}
 > > 
-> > <img src="../fig/rmd-03-unnamed-chunk-24-1.png" title="plot of chunk unnamed-chunk-24" alt="plot of chunk unnamed-chunk-24" width="612" style="display: block; margin: auto;" />
+> > <img src="../fig/rmd-03-unnamed-chunk-25-1.png" title="plot of chunk unnamed-chunk-25" alt="plot of chunk unnamed-chunk-25" width="612" style="display: block; margin: auto;" />
 > {: .solution}
 {: .challenge}
 

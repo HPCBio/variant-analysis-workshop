@@ -61,10 +61,9 @@ bg <- "data/hmp321_agpv4_chr1_subset.vcf.bgz"
 Now we'll build an index that will make it easy for R to read just particular
 regions of the genome.
 
-~~~
+```{r eval = FALSE}
 indexTabix(bg, format = "vcf")
-~~~
-{: .language-r}
+```
 
 ~~~
 [1] "data/hmp321_agpv4_chr1_subset.vcf.bgz.tbi"

@@ -51,7 +51,7 @@ In the [setup](setup.md), you downloaded and unzipped a reference genome file.
 
 
 ~~~
-ref_file <- "data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta"
+ref_file <- "data/Zm-B73-REFERENCE-GRAMENE-4.0.fa"
 ~~~
 {: .language-r}
 
@@ -85,9 +85,9 @@ mygenome
 
 ~~~
 class: FaFile 
-path: data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta
-index: data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta.fai
-gzindex: data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta.gzi
+path: data/Zm-B73-REFERENCE-GRAMENE-4.0.fa
+index: data/Zm-B73-REFERENCE-GRAMENE-4.0.fa.fai
+gzindex: data/Zm-B73-REFERENCE-GRAMENE-4.0.fa.gzi
 isOpen: FALSE 
 yieldSize: NA 
 ~~~

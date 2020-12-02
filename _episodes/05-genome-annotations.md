@@ -503,7 +503,7 @@ We'll need our reference genome sequence.
 
 
 ~~~
-mygenome <- FaFile("data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta")
+mygenome <- FaFile("data/Zm-B73-REFERENCE-GRAMENE-4.0.fa")
 ~~~
 {: .language-r}
 

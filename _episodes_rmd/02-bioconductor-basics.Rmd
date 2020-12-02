@@ -47,7 +47,7 @@ library(magrittr)
 In the [setup](setup.md), you downloaded and unzipped a reference genome file.
 
 ```{r}
-ref_file <- "data/Zm-B73-REFERENCE-GRAMENE-4.0.fasta"
+ref_file <- "data/Zm-B73-REFERENCE-GRAMENE-4.0.fa"
 ```
 
 You should build an _index_ for the file.  This is another file, ending in

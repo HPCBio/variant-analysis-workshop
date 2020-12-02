@@ -1,5 +1,6 @@
 *.gz
 *.fai
 *.fasta
+*.fa
 *.gff3
 hmp321_agpv4_chr1_subset_filtered*
