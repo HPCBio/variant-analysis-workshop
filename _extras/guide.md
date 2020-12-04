@@ -16,7 +16,9 @@ The code from `snpStats` in episode 4 for getting linkage disequilibrium
 vs. physical distance is hacky enough that I think it is better to just give
 them the code and demonstrate it rather than do live coding.
 
+In Dec. 2020, I ended up skipping episode 4.  There was more interest in episode
+5, and I did not end up with enough time for both.
+
 ## Technical tips and tricks
 
 ## Common problems
-
